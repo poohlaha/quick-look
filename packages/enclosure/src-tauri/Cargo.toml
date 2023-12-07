@@ -1,10 +1,10 @@
 [package]
-name = "enclosure"
-version = "0.0.0"
-description = "A Tauri App"
-authors = ["you"]
-license = ""
-repository = ""
+name = "QuickLook"
+version = "1.0.0"
+description = "Quickly view a file."
+authors = ["poohlaha"]
+license = "MIT/Apache-2.0"
+repository = "tgithub.com/poohlaha/quick-look"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

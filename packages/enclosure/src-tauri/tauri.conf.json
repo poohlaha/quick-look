@@ -6,13 +6,38 @@
     "distDir": "../../web/dist"
   },
   "package": {
-    "productName": "enclosure",
-    "version": "0.0.0"
+    "productName": "QuickLook",
+    "version": "1.0.0"
   },
   "tauri": {
     "bundle": {
       "active": true,
       "targets": "all",
+      "fileAssociations": [
+        {
+          "ext": [
+            "css",
+            "js",
+            "html",
+            "zip",
+            "txt",
+            "log",
+            "jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "svg", "bmp",
+            "doc", "docx",
+            "pdf",
+            "xlsx", "xls",
+            "json", "json5",
+            "woff", "woff2", "ttf",
+            "md", "pptx",
+            "sql",
+            "rs",
+            "txt",
+            "xml", "mathml", "ssml", "atom", "rss",
+            "clike", "abap", "abnf", "actionscript", "php", "sh", "groovy", "c", "cpp", "vim", "toml",
+            "yaml", "ts", "tsx", "npmrc", "lock"
+          ]
+        }
+      ],
       "identifier": "QuickLookReporter",
       "icon": [
         "icons/32x32.png",

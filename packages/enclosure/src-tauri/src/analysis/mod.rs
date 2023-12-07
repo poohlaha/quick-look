@@ -3,6 +3,7 @@ use base64::Engine;
 use log::info;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::env;
 use tauri::ipc::{InvokeBody, Request};
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -24,6 +25,16 @@ pub struct HttpResponse {
 }
 
 const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "svg", "bmp"];
+
+/// 读取关联的文件
+pub fn read_file_association() {
+    let args: Vec<String> = env::args().collect();
+    info!("args: {:#?}", args);
+    if args.len() > 1 {
+        let file_path = &args[1];
+        info!("file path: {}", file_path);
+    }
+}
 
 #[tauri::command]
 pub fn open_file(request: Request) -> Result<HttpResponse, String> {
