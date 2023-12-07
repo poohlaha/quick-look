@@ -20,7 +20,6 @@ const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", 
 
 #[tauri::command]
 pub fn open_file(request: Request) -> Result<HttpResponse, String> {
-    info!("request: {:#?}", request);
     let mut response = HttpResponse::default();
     response.image_suffixes = IMAGE_SUFFIXES.join(",").to_string();
     response.code = 500;
@@ -53,9 +52,6 @@ pub fn open_file(request: Request) -> Result<HttpResponse, String> {
     if let InvokeBody::Raw(data) = body {
         // image suffix
         if IMAGE_SUFFIXES.contains(&file_suffix.as_str()) {
-            // 获取图片的宽度和高度
-
-
             // 转成 base64
             let str = base64::engine::general_purpose::STANDARD.encode::<Vec<u8>>(data.clone());
             let mut content = String::from("data:image/png;base64,");

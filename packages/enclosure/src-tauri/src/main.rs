@@ -19,5 +19,5 @@ fn main() {
         .plugin(tauri_plugin_log::Builder::default().build())
         .invoke_handler(tauri::generate_handler![greet, open_file])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .expect("error while running QuickLook application");
 }

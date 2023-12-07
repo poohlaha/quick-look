@@ -35,17 +35,6 @@ export default class BaseStore {
       return {}
     }
 
-    /*
-    // 解除多次转义，将其还原为单次转义的 JSON 字符串
-    let newData = data
-      .replace(/^"/, '') // 去掉开头的双引号
-      .replace(/"$/, '') // 去掉末尾的双引号
-      .replace(/\\"/g, '"') // 将多次转义的双引号还原为单次转义的双引号
-
-    newData = newData.replace(/\\n/g, '\n')
-    console.log('newData: ', newData)
-     */
-
     let error = result.error || ''
     if (!Utils.isBlank(error) || result.code !== 200) {
       TOAST.show({ message: errMsg || error || COMMON.getLanguageText('ERROR_MESSAGE'), type: 4 })
