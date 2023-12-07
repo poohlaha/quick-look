@@ -1,0 +1,104 @@
+/**
+ * @fileOverview Utils 白色主题样式
+ * @date 2023-3-14
+ * @author poohlaha
+ */
+@font: 14px; // 正常字体
+@font_small: 12px; // 小一号字体
+@font_smaller: 10px; // 再小一号字体
+@font_large: 16px; // 大一号字体
+@font_larger: 18px; // 再大一号字体
+@font_largest: 20px; // 再再大一号字体
+@font_max_larger: 25px; // 再再再大一号字体
+@font_maximum: 50px; // 最大号字体, 一般用于显示数字
+
+// 主题
+@theme: #1989fa; // 默认主题色
+@theme_to: #e6f4ff; // 橙色选中高亮
+@theme_orange: #ff5541; // orange
+@theme_to_orange: rgba(255, 170, 160, 0.5); // orange
+@theme_blue: @theme; // blue
+@theme_to_blue: @theme_to; // blue
+
+// 常用颜色
+@disabled: #d3d2d1; // 失效颜色
+@color: #333333; // 颜色
+@color_shadow: rgba(255, 255, 255, 0.1); // shadow color
+@color_gray: #666666; // 正常灰色字体
+@color_gray_light: #aaacb8; // 灰色, 一般用于未选中 tab 等
+@color_gray_lighter: #f8f8f9; // 灰色, 一般用于背景颜色等
+@color_border_gray: #f1f3f6; // border
+@color_normal: #37373b; // 普通或图标下方等字体颜色
+@color_button: #ffbf47; // 按钮颜色
+@color_svg: #b8bcbf; // svg color
+@color_menu_active: #f2f2f2; // 菜单激活颜色
+@color_expend: #252626;
+@color_resolve: #24292f; // resolve color
+
+// 背景
+@background: #ffffff; // 背景
+@background_right: #eaedf1; // 右边背景
+@background_card: #ffffff; // 卡片背景
+@background_gay: #424545;
+@background_theme: linear-gradient(96deg, #1989fa 0%, #8fc3f8 100%);
+
+// 线条
+@divider: rgb(210 215 227 / 30%); // 分割线颜色
+@border: 1px solid @divider; // 线条
+@border_theme: 1px solid @theme; // 主题色线条
+@border_button_plan: 1px solid #d2d7e3; // 扁平按钮边框
+@border_radius: 8px;
+
+// 其他
+@mask: rgba(0, 0, 0, 0.5); // 遮罩层颜色
+@status: @theme; // 状态
+
+.theme(
+  @font,
+  @font_small,
+  @font_smaller,
+  @font_large,
+  @font_larger,
+  @font_largest,
+  @font_max_larger,
+  @font_maximum,
+
+  // 主题
+  @theme,
+  @theme_to,
+  @theme_orange,
+  @theme_to_orange,
+  @theme_blue,
+  @theme_to_blue,
+
+  // 常用颜色
+  @disabled,
+  @color,
+  @color_shadow,
+  @color_gray,
+  @color_gray_light,
+  @color_gray_lighter,
+  @color_border_gray,
+  @color_normal,
+  @color_button,
+  @color_svg,
+  @color_menu_active,
+  @color_expend,
+  @color_resolve,
+
+  @background,
+  @background_right,
+  @background_card,
+  @background_gay,
+
+  // 线条
+  @divider,
+  @border,
+  @border_theme,
+  @border_button_plan,
+  @border_radius,
+
+  // 其他
+  @mask,
+  @status
+);

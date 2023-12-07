@@ -1,0 +1,9 @@
+# 前端路由, 需要按模块分
+HOME_URL = '/home'
+MAIN_URL = '/main'
+DASHBOARD_URL = '/dashboard'
+PROCESS_URL = '/process'
+COMMAND_URL = '/command'
+DIRECTORY_URL = '/directory'
+NGINX_URL = '/nginx'
+

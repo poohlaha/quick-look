@@ -1,0 +1,14 @@
+#system
+ERROR_MESSAGE = 'The server is out of service. Please try again later.'
+TOKEN_EXPIRED_ERROR = 'Login timeout, please login again.'
+TIMEOUT_MESSAGE = 'The server connection timed out. Please try again later.'
+LOADING = 'Loading...'
+NO_DATA = 'No data found'
+
+# login logout
+LOGIN_SUCCESS = 'Login Success'
+LOGIN_ERROR = 'Login Error'
+LOGOUT_SUCCESS = 'Logout Success'
+LOGOUT_ERROR = 'Logout Error'
+
+NO_DATA_SAVE = 'No data to save'

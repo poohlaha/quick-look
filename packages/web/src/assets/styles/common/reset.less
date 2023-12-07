@@ -1,0 +1,343 @@
+/**
+ * @fileOverview Utils 重置浏览器属性等, 定义全局公共样式
+ * @date 2023-3-14
+ * @author poohlaha
+ */
+@charset "utf-8";
+
+/* rest css */
+*,
+::before,
+::after {
+  /* 选择所有标签 */
+  margin: 0;
+  padding: 0;
+
+  /* 清除移动端默认点击高亮效果 */
+  -webkit-tap-highlight-color: transparent;
+
+  /* 设置所有的都是以边框开始计算宽度 百分比布局 */
+  box-sizing: border-box;
+  /* -moz-box-sizing: border-box; */
+  -webkit-box-sizing: border-box; /* 兼容 */
+  // user-select: none;
+  -webkit-touch-callout: none; // 阻止长按图片之后呼出菜单提示复制的行为
+  -webkit-text-size-adjust: none; // //禁用Webkit内核浏览器的文字大小调整功能
+}
+
+/* 滚动条 */
+/*定义滚动条高宽及背景 高宽分别对应横竖滚动条的尺寸*/
+::-webkit-scrollbar {
+  /*滚动条整体样式*/
+  width: 6px; /*高宽分别对应横竖滚动条的尺寸*/
+  height: 6px;
+}
+
+/*定义滚动条轨道 内阴影+圆角*/
+::-webkit-scrollbar-track {
+  /*滚动条里面轨道*/
+  // box-shadow   : inset 0 0 5px rgba(0, 0, 0, 0.2);
+  //  border-radius: 10px;
+}
+
+/*定义滑块 内阴影+圆角*/
+::-webkit-scrollbar-thumb {
+  /*滚动条里面小方块*/
+  border-radius: 5px;
+  background-color: darkgrey; // #6b6f83
+  background-image: -webkit-linear-gradient(45deg,
+  rgba(255, 255, 255, 0.2) 25%,
+  transparent 25%,
+  transparent 50%,
+  rgba(255, 255, 255, 0.2) 50%,
+  rgba(255, 255, 255, 0.2) 75%,
+  transparent 75%,
+  transparent);
+}
+
+a {
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: none;
+}
+
+input {
+  border: none;
+  outline: none;
+  -webkit-appearance: none; /* 清除移动端默认的表单样式 */
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.clearfix::before,
+.clearfix::after {
+  content: '';
+  display: block;
+  visibility: hidden;
+  clear: both;
+  height: 0;
+  line-height: 0;
+}
+
+html {
+  // font-size: 625%;
+  height: 100%;
+}
+
+body {
+  width: 100%;
+  height: 100%;
+  font-family: PingFangSC-Regular, PingFang SC, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #333333;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 1. 浮动布局 */
+.float-left {
+  float: left;
+}
+
+.float-right {
+  float: right;
+}
+
+/* 2. flex布局 */
+.flex,
+.flex-center,
+.flex-align-start,
+.flex-align-center,
+.flex-align-end,
+.flex-jsc-start,
+.flex-jsc-center,
+.flex-jsc-end,
+.flex-jsc-between,
+.flex-jsc-around,
+.flex-direction-column,
+.flex-wrap,
+.flex-reverse,
+.flex-nowrap {
+  display: flex;
+}
+
+.flex-center {
+  justify-content: center;
+  align-items: center;
+}
+
+.flex-align-start {
+  align-items: start;
+}
+
+.flex-align-center {
+  align-items: center;
+}
+
+.flex-align-end {
+  align-items: end;
+}
+
+.flex-jsc-start {
+  justify-content: flex-start;
+}
+
+.flex-jsc-center {
+  justify-content: center;
+}
+
+.flex-jsc-end {
+  justify-content: flex-end;
+}
+
+.flex-jsc-between {
+  justify-content: space-between;
+}
+
+.flex-jsc-around {
+  justify-content: space-around;
+}
+
+.flex-direction-column {
+  flex-direction: column;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.flex-nowrap {
+  flex-wrap: nowrap;
+}
+
+.flex-reverse {
+  flex-direction: row-reverse;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+.flex-2 {
+  flex: 2;
+}
+
+.flex-3 {
+  flex: 3;
+}
+
+.flex-4 {
+  flex: 4;
+}
+
+.flex-5 {
+  flex: 5;
+}
+
+/* 2. 定位 */
+.position-relative {
+  position: relative;
+}
+
+.position-absolute {
+  position: absolute;
+}
+
+.position-static {
+  position: static;
+}
+
+.position-sticky {
+  position: sticky;
+}
+
+.position-fixed {
+  position: fixed;
+}
+
+/* 3. 文字对齐 */
+.text-l {
+  text-align: left;
+}
+
+.text-c {
+  text-align: center;
+}
+
+.text-r {
+  text-align: right;
+}
+
+/* 4. 宽高百分比 */
+.wh100 {
+  width: 100%;
+  height: 100%;
+}
+
+.w100 {
+  width: 100%;
+}
+
+.w33 {
+  width: calc(100% / 3);
+}
+
+.w50 {
+  width: 50%;
+}
+
+.w25 {
+  width: 25%;
+}
+
+.h100 {
+  height: 100%;
+}
+
+.min-h100 {
+  min-height: 100%;
+}
+
+/* 5. 文字超出省略 */
+.over-ellipsis {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 文字超出三行省略*/
+.over-three-ellipsis,
+.over-two-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+}
+
+/* 文字超出两行省略*/
+.over-two-ellipsis {
+  -webkit-line-clamp: 2;
+}
+
+/* 文字超出三行省略*/
+.over-three-ellipsis {
+  -webkit-line-clamp: 3;
+}
+
+.overflow-auto {
+  overflow: auto;
+}
+
+.overflow-hidden {
+  overflow: hidden;
+}
+
+
+/* 换行 */
+.line-break {
+  word-wrap: break-word;
+  word-break: break-all;
+  white-space: normal;
+}
+
+/* 不换行 */
+.no-line-break {
+  word-break: keep-all;
+  white-space: normal;
+}
+
+/* 6. 滚动条 */
+/* x轴滚动 */
+.x-scroll {
+  overflow-x: scroll;
+}
+
+/* y轴滚动 */
+.y-scroll {
+  overflow-y: scroll;
+}
+
+/* 遮罩层 */
+.mask {
+  position: fixed;
+  z-index: 999;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.4);
+  transition: all 0.2s ease-in;
+}

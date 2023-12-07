@@ -1,0 +1,17 @@
+[CONSTANT]
+SUCCESS = 'SUCCESS'
+REQUEST_TIMEOUT = 50000
+PRODUCT_NAME = 'Quick Look'
+SKINS = ['theme_orange', 'theme_blue']
+LANGUAGES_NAME = 'lang'
+LANGUAGES = ['zh', 'en']
+MENU_CACHE = '7NxzmQMTsw!QzmdcCFm#Q2p^&5KaTstq'
+ALERT_DURATION = 3
+
+[CONSTANT.REQUEST]
+DEFAULT_URL_FORMAT = 'JSON'
+DEFAULT_CONTENT_TYPE = 'application/json;charset=UTF-8'
+DEFAULT_FORM_URLENCODED = 'application/x-www-form-urlencoded;charset=UTF-8'
+X_REQUESTED_WITH = 'x-requested-with'
+DEFAULT_X_REQUESTED_WITH = 'XMLHttpRequest'
+CONTENT_TYPE_NAME = 'Content-Type'
