@@ -6,12 +6,19 @@ use std::collections::HashMap;
 use tauri::ipc::{InvokeBody, Request};
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct HttpFileOptions {
+    name: String,
+    suffix: String,
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct HttpResponse {
     pub code: u16,
     pub headers: HashMap<String, String>,
     pub body: String,
+    #[serde(rename = "fileProps")]
+    pub file_props: HttpFileOptions,
     pub error: String,
-
     #[serde(rename = "imageSuffixes")]
     pub image_suffixes: String,
 }
@@ -41,12 +48,16 @@ pub fn open_file(request: Request) -> Result<HttpResponse, String> {
         file_name = name.to_string();
     }
 
+    response.file_props.name = file_name.clone();
+
     // file suffix
     let names: Vec<&str> = file_name.split(".").collect();
     let mut file_suffix = String::new();
     if let Some(suffix) = names.last() {
         file_suffix = suffix.to_string()
     }
+
+    response.file_props.suffix = file_suffix.clone();
 
     let body = request.body();
     if let InvokeBody::Raw(data) = body {

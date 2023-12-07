@@ -7,6 +7,7 @@ import { observable, action } from 'mobx'
 import BaseStore from '../base/base.store'
 import { invoke } from '@tauri-apps/api/primitives'
 import { info } from '@tauri-apps/plugin-log'
+import {COMMON, TOAST} from "@utils/base";
 
 class HomeStore extends BaseStore {
   @observable fileName = '' // 文件名称
@@ -27,21 +28,26 @@ class HomeStore extends BaseStore {
    */
   @action
   async readFile(file: File) {
-    this.imageProps = {}
-    this.loading = true
-    this.fileName = file.name || ''
-    let buffer: ArrayBuffer = await file.arrayBuffer()
+    try {
+      this.imageProps = {}
+      this.loading = true
+      this.fileName = file.name || ''
+      let buffer: ArrayBuffer = await file.arrayBuffer()
 
-    let result: {[K: string]: any} = await invoke('open_file', buffer, { headers: { fileName: this.fileName }})
-    console.log('result:', result)
-    this.loading = false
+      let result: {[K: string]: any} = await invoke('open_file', buffer, { headers: { fileName: this.fileName }})
+      console.log('result:', result)
+      this.loading = false
 
-    this.content = this.analysisResult(result, `读取文件 ${this.fileName} 失败!`)
-    // this.getImageProps(file)
+      this.content = this.analysisResult(result, `读取文件 ${this.fileName} 失败!`)
+      // this.getImageProps(file)
 
-    this.imageSuffixes = (result.imageSuffixes || '').split(',') || []
-    await info(`imageSuffixes: ${JSON.stringify(this.imageSuffixes)}`)
-    console.log('imageSuffixes:', this.imageSuffixes)
+      this.imageSuffixes = (result.imageSuffixes || '').split(',') || []
+      await info(`imageSuffixes: ${JSON.stringify(this.imageSuffixes)}`)
+      console.log('imageSuffixes:', this.imageSuffixes)
+    } catch (err: any) {
+      console.error('read file error !', err)
+      TOAST.show({ message: `读取文件 ${this.fileName} 失败!`, type: 4 })
+    }
   }
 
   /**

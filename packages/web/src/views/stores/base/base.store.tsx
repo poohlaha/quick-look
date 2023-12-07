@@ -43,15 +43,25 @@ export default class BaseStore {
 
     let content = result.body || {}
     if (typeof content === 'string') {
-      content = content
-        .replace(/^"/, '') // 去掉开头的双引号
-        .replace(/"$/, '') // 去掉末尾的双引号
-        .replace(/\\"/g, '"') // 将多次转义的双引号还原为单次转义的双引号
-        .replace(/\\r/g, '\n')
-        .replace(/\\n/g, '\n')
-        .replace(/↵/g, '')
-        .replace(/\\t/g, '  ')
-        .replace(/\t/g, '  ')
+      let fileProps = result.fileProps || {}
+      let suffix = fileProps.suffix || ''
+      let imageSuffixes = (result.imageSuffixes || '').split(',') || []
+      let isImage = false
+      if (imageSuffixes.includes(suffix) && imageSuffixes.length > 0) {
+        isImage = true
+      }
+
+      if (!isImage) {
+        content = content
+            .replace(/^"/, '') // 去掉开头的双引号
+            .replace(/"$/, '') // 去掉末尾的双引号
+            .replace(/\\"/g, '"') // 将多次转义的双引号还原为单次转义的双引号
+            .replace(/\\r/g, '\n')
+            .replace(/\\n/g, '\n')
+            .replace(/↵/g, '')
+            .replace(/\\t/g, '  ')
+            .replace(/\t/g, '  ')
+      }
     }
 
     return content || {}

@@ -27,11 +27,12 @@
     },
     "windows": [
       {
+        "fileDropEnabled": false,
         "fullscreen": false,
         "resizable": true,
         "title": "QuickLook",
-        "min-width": 800,
-        "min-height": 600,
+        "minWidth": 800,
+        "minHeight": 600,
         "width": 800,
         "height": 600
       }

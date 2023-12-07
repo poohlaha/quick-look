@@ -90,14 +90,16 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
         <div className="wrapper flex-center flex-1 overflow-auto">
           {
             Utils.isBlank(homeStore.content) ? (
-                <Dragger {...uploadProps}>
-                  <p className="ant-upload-drag-icon">
-                  </p>
-                  <p className="ant-upload-text">拖拽文件或点此处打开文件</p>
-                  <p className="ant-upload-hint">
-                    支持 .js/.css/.ts/.zip 等格式
-                  </p>
-                </Dragger>
+                <div className="upload-wrapper">
+                  <Dragger {...uploadProps}>
+                    <p className="ant-upload-drag-icon">
+                    </p>
+                    <p className="ant-upload-text">拖拽文件或点此处打开文件</p>
+                    <p className="ant-upload-hint">
+                      支持 .js/.css/.ts/.zip 等格式
+                    </p>
+                  </Dragger>
+                </div>
             ) : (
                 getLookHtml()
             )
