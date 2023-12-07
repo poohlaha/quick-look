@@ -34,7 +34,7 @@ class HomeStore extends BaseStore {
       this.fileName = file.name || ''
       let buffer: ArrayBuffer = await file.arrayBuffer()
 
-      let result: {[K: string]: any} = await invoke('open_file', buffer, { headers: { fileName: this.fileName }})
+      let result: {[K: string]: any} = await invoke('open_file', buffer, { headers: { fileName: encodeURIComponent(this.fileName) }})
       console.log('result:', result)
       this.loading = false
 
@@ -45,6 +45,7 @@ class HomeStore extends BaseStore {
       await info(`imageSuffixes: ${JSON.stringify(this.imageSuffixes)}`)
       console.log('imageSuffixes:', this.imageSuffixes)
     } catch (err: any) {
+      this.loading = false
       console.error('read file error !', err)
       TOAST.show({ message: `读取文件 ${this.fileName} 失败!`, type: 4 })
     }

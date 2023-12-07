@@ -33,6 +33,7 @@ pub fn open_file(request: Request) -> Result<HttpResponse, String> {
 
     // get filename in headers
     let headers = request.headers();
+    info!("headers: {:#?}", headers);
     let filename = headers.get("fileName");
     info!("filename: {:#?}", filename);
 
@@ -42,13 +43,15 @@ pub fn open_file(request: Request) -> Result<HttpResponse, String> {
 
     let mut file_name = String::new();
     if let Some(filename) = filename {
-        let name = filename.to_str().map_err(|err| {
-            return Error::Error(err.to_string()).to_string();
-        })?;
+        let name = filename.to_str().map_err(|err| Error::Error(err.to_string()).to_string())?;
         file_name = name.to_string();
     }
 
+    // decode filename
+    let file_name = urlencoding::decode(&file_name).map_err(|err| Error::Error(err.to_string()).to_string())?;
+    let file_name = file_name.to_string();
     response.file_props.name = file_name.clone();
+    info!("filename decode: {:#?}", file_name);
 
     // file suffix
     let names: Vec<&str> = file_name.split(".").collect();
