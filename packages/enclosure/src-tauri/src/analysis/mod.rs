@@ -15,11 +15,11 @@ pub struct SuffixProps {
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub(crate) struct FileProps {
+    pub key: String,
     pub name: String,
     pub suffix: String,
     pub prefix: String,
     pub path: String,
-    #[serde(rename = "fullPath")]
     pub kind: String,
     pub size: String,
     pub packed: String,

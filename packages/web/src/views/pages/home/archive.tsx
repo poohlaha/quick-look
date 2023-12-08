@@ -14,7 +14,6 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
             dataIndex: 'name',
             key: 'name',
             render: (text: string, record: {[K: string]: any} = {}) => {
-                console.log("record", record)
                 return (
                    <div className="name-cell flex-align-center">
                        {
@@ -63,13 +62,32 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
             title: 'Kind',
             dataIndex: 'kind',
             key: 'kind',
+            render: (text: string = '', record: {[K: string]: any} = {}) => {
+                return record.isDirectory ? '' : (<span>{text.toUpperCase() || ''}</span>)
+            }
         }
     ]
 
+    const changeFiles = (files: Array<{[K: string]: any}> = []) => {
+        files.forEach(file => {
+            if (file.files && Array.isArray(file.files)) {
+                changeFiles(file.files);
+                file.children = file.files;
+                delete file.files;
+                if (file.children.length === 0) {
+                    delete file.children;
+                }
+            }
+        })
+    }
+
     const render = () => {
         if (typeof homeStore.content !== "object") return (<div></div>)
-        if (homeStore.loading || Utils.isObjectNull(homeStore.content) || Utils.isBlank(homeStore.fileName)) return (
-            <div></div>)
+        if (homeStore.loading || Utils.isObjectNull(homeStore.content) || Utils.isBlank(homeStore.fileName)) return (<div></div>)
+
+        let files = homeStore.content.files || []
+        changeFiles(files)
+        console.log('files', files)
 
         return (
             <div className="archive-wrapper">

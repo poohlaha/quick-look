@@ -56,6 +56,7 @@ impl Archive {
 
             let suffix = FileHandler::get_file_suffix(file.name()).to_uppercase();
             files.push(FileProps {
+                key: file.name().to_string(),
                 name: file.name().to_string(),
                 suffix: suffix.clone(),
                 prefix: "".to_string(),
@@ -128,6 +129,7 @@ impl Archive {
                     new_dir.path = full_path.clone().as_path().to_string_lossy().to_string();
                     new_dir.files = Vec::new();
                     new_dir.suffix = FileHandler::get_file_suffix(&name);
+                    new_dir.kind = FileHandler::get_file_suffix(&name);
 
                     current_dir.files.push(new_dir);
 

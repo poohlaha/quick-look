@@ -37,7 +37,7 @@ export default class BaseStore {
 
     let error = result.error || ''
     if (!Utils.isBlank(error) || result.code !== 200) {
-      TOAST.show({ message: errMsg || error || COMMON.getLanguageText('ERROR_MESSAGE'), type: 4 })
+      TOAST.show({ message: error || errMsg || COMMON.getLanguageText('ERROR_MESSAGE'), type: 4 })
       return
     }
 
