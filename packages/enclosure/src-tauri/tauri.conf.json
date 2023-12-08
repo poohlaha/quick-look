@@ -52,6 +52,7 @@
     },
     "windows": [
       {
+        "label": "main",
         "fileDropEnabled": false,
         "fullscreen": false,
         "resizable": true,

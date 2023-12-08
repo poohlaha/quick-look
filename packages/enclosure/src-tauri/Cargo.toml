@@ -1,5 +1,5 @@
 [package]
-name = "QuickLook"
+name = "quick-look"
 version = "1.0.0"
 description = "Quickly view a file."
 authors = ["poohlaha"]

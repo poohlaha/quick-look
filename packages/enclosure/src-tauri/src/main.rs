@@ -6,7 +6,6 @@ mod error;
 
 use analysis::{open_file, read_file_association};
 
-
 fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_window::init())
@@ -16,6 +15,6 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running QuickLook application");
 
-    // 读取关联的文件
+    // Trigger `application:openURLs:`
     read_file_association();
 }

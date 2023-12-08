@@ -28,6 +28,7 @@ const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", 
 
 /// 读取关联的文件
 pub fn read_file_association() {
+    info!("read file association ...");
     let args: Vec<String> = env::args().collect();
     info!("args: {:#?}", args);
     if args.len() > 1 {

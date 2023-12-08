@@ -7,7 +7,7 @@ import { observable, action } from 'mobx'
 import BaseStore from '../base/base.store'
 import { invoke } from '@tauri-apps/api/primitives'
 import { info } from '@tauri-apps/plugin-log'
-import {COMMON, TOAST} from "@utils/base";
+import {TOAST} from '@utils/base'
 
 class HomeStore extends BaseStore {
   @observable fileName = '' // 文件名称
