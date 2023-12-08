@@ -3,12 +3,30 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use tauri::ipc::{Request};
-use crate::file::FileHandler;
+use crate::file::{FileHandler};
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub struct HttpFileOptions {
+pub struct SuffixProps {
     pub(crate) name: String,
-    pub(crate) suffix: String,
+    #[serde(rename = "type")]
+    pub(crate) _type: String,
+    pub(crate) list: Vec<String>,
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub(crate) struct FileProps {
+    pub name: String,
+    pub suffix: String,
+    pub path: String,
+    pub kind: String,
+    pub size: String,
+    pub packed: String,
+    pub modified: String,
+    pub permissions: String,
+    pub executable: bool,
+    #[serde(rename = "isDirectory")]
+    pub is_directory: bool,
+    pub files: Vec<FileProps>
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -17,10 +35,10 @@ pub struct HttpResponse {
     pub(crate) headers: HashMap<String, String>,
     pub(crate) body: String,
     #[serde(rename = "fileProps")]
-    pub(crate) file_props: HttpFileOptions,
+    pub(crate) file_props: FileProps,
     pub(crate) error: String,
-    #[serde(rename = "imageSuffixes")]
-    pub(crate) image_suffixes: String,
+    #[serde(rename = "suffixProps")]
+    pub(crate) suffix_props: SuffixProps,
 }
 
 

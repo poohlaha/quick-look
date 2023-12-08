@@ -12,10 +12,9 @@ import Utils from '@utils/utils'
 
 class HomeStore extends BaseStore {
   @observable fileName = '' // 文件名称
-  @observable content = '' // 文件内容
-  @observable imageSuffixes: Array<string> = [] // 图片后续列表
+  @observable content: string | {[K: string]: any} = {} // 文件内容
+  @observable suffixProps: Array<string> = [] // 图片后续列表
   @observable imageProps: { [K: string]: number | string} = {} // 图片属性
-
 
   @action
   reset() {
@@ -57,14 +56,18 @@ class HomeStore extends BaseStore {
       console.log('result:', result)
       this.loading = false
 
-      this.content = this.analysisResult(result, `读取文件 ${this.fileName} 失败!`)
-      // this.getImageProps(file)
+      this.suffixProps = result.suffixProps || []
+      await info(`suffixProps: ${JSON.stringify(this.suffixProps)}`)
+      console.log('suffixProps:', this.suffixProps)
 
-      this.imageSuffixes = (result.imageSuffixes || '').split(',') || []
-      await info(`imageSuffixes: ${JSON.stringify(this.imageSuffixes)}`)
-      console.log('imageSuffixes:', this.imageSuffixes)
+      this.content = this.analysisResult(result, `读取文件 ${this.fileName} 失败!`)
+      if (this.content === undefined || this.content === null) {
+        this.reset()
+        return
+      }
+      // this.getImageProps(file)
     } catch (err: any) {
-      this.loading = false
+      this.reset()
       console.error('read file error !', err)
       TOAST.show({ message: `读取文件 ${this.fileName} 失败!`, type: 4 })
     }

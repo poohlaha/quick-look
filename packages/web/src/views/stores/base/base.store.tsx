@@ -31,18 +31,19 @@ export default class BaseStore {
   @action
   analysisResult = (result: {[K: string]: any} = {}, errMsg: string = '') => {
     if (Utils.isObjectNull(result)) {
-      TOAST.show({ message: errMsg || COMMON.getLanguageText('ERROR_MESSAGE'), type: 4 })
-      return {}
+      TOAST.show({ message: errMsg  || COMMON.getLanguageText('ERROR_MESSAGE'), type: 4 })
+      return
     }
 
     let error = result.error || ''
     if (!Utils.isBlank(error) || result.code !== 200) {
       TOAST.show({ message: errMsg || error || COMMON.getLanguageText('ERROR_MESSAGE'), type: 4 })
-      return {}
+      return
     }
 
-    let content = result.body || {}
-    if (typeof content === 'string') {
+    let content = result.body || ''
+    const suffixProps = result.suffixProps || {}
+    if (!Utils.isBlank(content)) {
       let fileProps = result.fileProps || {}
       let suffix = fileProps.suffix || ''
       let imageSuffixes = (result.imageSuffixes || '').split(',') || []
@@ -62,8 +63,15 @@ export default class BaseStore {
             .replace(/\\t/g, '  ')
             .replace(/\t/g, '  ')
       }
+
+      return content
     }
 
-    return content || {}
+    // 压缩包
+    if (suffixProps.type === 'archive') {
+      return result.fileProps || {}
+    }
+
+    return ''
   }
 }
