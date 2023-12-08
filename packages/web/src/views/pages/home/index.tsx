@@ -1,16 +1,18 @@
 
-import React, {ReactElement} from 'react'
+import React, {ReactElement, useRef} from 'react'
 import { observer } from 'mobx-react-lite'
 import { useStore } from '@stores/index'
 import type { UploadProps } from 'antd'
 import { Upload, Button } from 'antd'
 import Loading from '@views/components/loading/loading'
 import Utils from '@utils/utils'
+import { open } from '@tauri-apps/plugin-dialog'
 
 const { Dragger } = Upload
 
 const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
 
+  const uploadRef = useRef(null)
   const {homeStore} = useStore()
 
   const uploadProps: UploadProps = {
@@ -91,6 +93,7 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
           {
             Utils.isBlank(homeStore.content) ? (
                 <div className="upload-wrapper">
+                  {/*
                   <Dragger {...uploadProps}>
                     <p className="ant-upload-drag-icon">
                     </p>
@@ -99,6 +102,48 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
                       支持 .js/.css/.ts/.zip 等格式
                     </p>
                   </Dragger>
+                  */}
+
+                  <div
+                      className="ant-upload-wrapper"
+                      ref={uploadRef}
+                      onDragOver={(event: any) => {
+                        event.preventDefault()
+                        uploadRef.current?.classList.add('drag')
+                      }}
+                      onDragLeave={(event: any) => {
+                        uploadRef.current?.classList.remove('drag')
+                      }}
+                      onDrop={async (event: any) => {
+                        event.preventDefault()
+                        uploadRef.current?.classList.remove('drag')
+
+                        let files = event.dataTransfer?.files || []
+                        if (files.length === 0) return
+                        console.log(files)
+                        await homeStore.readFile(files[0])
+                      }}
+                      onClick={async () => {
+                        const file: any = await open({
+                          multiple: false,
+                          directory: false
+                        });
+                        console.log('select file', file);
+                        if (file) {
+                          await homeStore.readFile(null, file || {})
+                        }
+                      }}
+                  >
+                    <div className="css-dev-only-do-not-override-xu9wm8 ant-upload ant-upload-drag">
+                      <span className="ant-upload ant-upload-btn" role="button">
+                        <div className="ant-upload-drag-container">
+                          <p className="ant-upload-drag-icon"></p>
+                          <p className="ant-upload-text">拖拽文件或点此处打开文件</p>
+                          <p className="ant-upload-hint">支持 .js/.css/.ts/.zip 等格式</p>
+                        </div>
+                      </span>
+                    </div>
+                  </div>
                 </div>
             ) : (
                 getLookHtml()
@@ -107,7 +152,7 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
         </div>
 
         {/* */}
-        <Loading show={homeStore.loading} />
+        <Loading show={homeStore.loading}/>
       </div>
     )
   }

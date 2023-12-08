@@ -8,6 +8,7 @@ import BaseStore from '../base/base.store'
 import { invoke } from '@tauri-apps/api/primitives'
 import { info } from '@tauri-apps/plugin-log'
 import {TOAST} from '@utils/base'
+import Utils from '@utils/utils'
 
 class HomeStore extends BaseStore {
   @observable fileName = '' // 文件名称
@@ -27,14 +28,32 @@ class HomeStore extends BaseStore {
    * 获取系统信息
    */
   @action
-  async readFile(file: File) {
+  async readFile(file: File | null = null, fileProps: {[K: string]: string} = {}) {
     try {
       this.imageProps = {}
       this.loading = true
-      this.fileName = file.name || ''
-      let buffer: ArrayBuffer = await file.arrayBuffer()
+      let result: {[K: string]: any} = {}
 
-      let result: {[K: string]: any} = await invoke('open_file', buffer, { headers: { fileName: encodeURIComponent(this.fileName) }})
+      if (file !== null) {
+        this.fileName = file.name || ''
+        let buffer: ArrayBuffer = await file.arrayBuffer()
+        result = await invoke('file_handler', buffer, { headers: { fileName: encodeURIComponent(this.fileName) }})
+      } else if (!Utils.isObjectNull(fileProps)) {
+        console.log('fileProps:', fileProps)
+        await info(`fileProps: ${JSON.stringify(fileProps)}`)
+
+        this.fileName = fileProps.name || ''
+        let filePath = fileProps.path || ''
+        if (Utils.isBlank(filePath)) {
+          console.log('file path is empty !')
+          await info('file path is empty !')
+          this.loading = false
+          return
+        }
+
+        result = await invoke('file_handler', { filePath }, { headers: { fileName: encodeURIComponent(this.fileName) }})
+      }
+
       console.log('result:', result)
       this.loading = false
 

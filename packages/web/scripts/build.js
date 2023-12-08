@@ -115,7 +115,7 @@ class ProjectBuilder {
       mode: 'development',
       entry: {
         vendor: ['react', 'react-dom', 'react-router-dom', 'mobx', 'mobx-react-lite'],
-        other: ['axios', 'crypto-js']
+        // other: ['axios', 'crypto-js']
         // antd: ['antd']
       },
       output: {
