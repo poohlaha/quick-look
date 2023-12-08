@@ -42,6 +42,13 @@ impl FileHandler {
         response.file_props.name = file_name.clone();
         response.file_props.suffix = file_suffix.clone();
 
+        if let Some(index) = file_name.rfind('.') {
+            let name = &file_name[..index];
+            response.file_props.prefix = name.to_string();
+        } else {
+            response.file_props.prefix = file_name.clone();
+        }
+
         let body = request.body();
         if let InvokeBody::Raw(data) = body {
             // blob

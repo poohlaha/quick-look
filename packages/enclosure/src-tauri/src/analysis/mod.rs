@@ -17,7 +17,9 @@ pub struct SuffixProps {
 pub(crate) struct FileProps {
     pub name: String,
     pub suffix: String,
+    pub prefix: String,
     pub path: String,
+    #[serde(rename = "fullPath")]
     pub kind: String,
     pub size: String,
     pub packed: String,

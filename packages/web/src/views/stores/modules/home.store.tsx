@@ -65,6 +65,8 @@ class HomeStore extends BaseStore {
         this.reset()
         return
       }
+      await info(`content: ${JSON.stringify(this.content)}`)
+
       // this.getImageProps(file)
     } catch (err: any) {
       this.reset()

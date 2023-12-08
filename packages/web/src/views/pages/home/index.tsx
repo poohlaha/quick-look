@@ -94,10 +94,10 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
             )
         }
 
-        <div className={`wrapper flex-1 overflow-auto ${empty ? 'flex-center' : ''}`}>
+        <div className={`wrapper flex-1 overflow-auto ${empty ? 'is-empty' : ''}`}>
           {
             empty ? (
-                <div className="upload-wrapper">
+                <div className="upload-wrapper wh100">
                   {/*
                   <Dragger {...uploadProps}>
                     <p className="ant-upload-drag-icon">
@@ -146,7 +146,7 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
                       <span className="ant-upload ant-upload-btn" role="button">
                         <div className="ant-upload-drag-container">
                           <p className="ant-upload-drag-icon"></p>
-                          <p className="ant-upload-text">拖拽文件或点此处打开文件</p>
+                          <p className="ant-upload-text">拖拽文件或点击打开文件</p>
                           <p className="ant-upload-hint">支持 .js/.css/.ts/.zip 等格式</p>
                         </div>
                       </span>
