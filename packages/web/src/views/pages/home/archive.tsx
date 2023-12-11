@@ -1,5 +1,5 @@
-import React, {ReactElement} from "react";
-import {observer} from "mobx-react-lite";
+import React, {ReactElement} from 'react'
+import {observer} from 'mobx-react-lite'
 import {useStore} from '@views/stores'
 import Utils from '@utils/utils'
 import { Table } from 'antd'

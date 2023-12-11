@@ -40,7 +40,7 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
   }
 
   const getTextOrImageHtml = () => {
-    if (typeof homeStore.content !== "string") return null
+    if (typeof homeStore.content !== 'string') return null
     if (homeStore.loading || Utils.isBlank(homeStore.content) || Utils.isBlank(homeStore.fileName)) return null
 
     // @ts-ignore

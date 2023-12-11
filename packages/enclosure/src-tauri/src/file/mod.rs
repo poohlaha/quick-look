@@ -119,6 +119,7 @@ impl FileHandler {
 
         file_props.name = response.file_props.name.clone();
         file_props.suffix = response.file_props.suffix.clone();
+        file_props.prefix = response.file_props.prefix.clone();
         response.file_props = file_props;
 
         // archive suffix

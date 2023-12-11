@@ -73,17 +73,31 @@ impl Archive {
         }
 
         // 按目录归纳文件
-        let props = Self::organize_files(files, &response.file_props.prefix);
-        let mut props_files: Vec<FileProps> = Vec::new();
-        let files = props.files.clone();
+        let props = Self::organize_files(files);
+        println!("props: {:#?}", props);
+        let mut files = props.files.clone();
+        println!("files: {:#?}", files);
         if files.len() > 0 {
-            props_files = files.get(0).unwrap().files.clone();
+            // 判断第一个名称是不是项目名称, 如果是, 则忽略掉
+            let first_file = files.get(0).unwrap();
+            let prefix = response.file_props.prefix.clone();
+            let spec = String::from("/");
+            let mut before_prefix = spec.clone();
+            before_prefix.push_str(prefix.as_str());
+
+            let mut after_prefix = prefix.clone();
+            after_prefix.push_str(spec.as_str());
+
+            if first_file.name == prefix ||
+                first_file.name == before_prefix || first_file.name == after_prefix || first_file.name == spec  {
+                files = first_file.files.clone();
+            }
         }
 
         response.code = 200;
         response.file_props.kind = "Zip Archive".to_string();
         response.file_props.packed = FileHandler::convert_size(zip_packed);
-        response.file_props.files = props_files;
+        response.file_props.files = files;
         response.suffix_props = SuffixProps {
             name: response.file_props.suffix.clone(),
             _type: String::from("archive"),
@@ -95,20 +109,11 @@ impl Archive {
     }
 
     /// 按目录归纳文件
-    fn organize_files(files: Vec<FileProps>, parent: &str) -> FileProps {
+    fn organize_files(files: Vec<FileProps>) -> FileProps {
         let mut root = FileProps::default();
 
         for props in files {
           let file_path = &props.path;
-            // 根目录不需要
-            if file_path == parent {
-                continue;
-            }
-
-            let file_path = file_path.strip_prefix(parent).unwrap_or("");
-            if file_path.is_empty() {
-                continue;
-            }
 
             let path = Path::new(file_path);
             let mut current_dir = &mut root;
