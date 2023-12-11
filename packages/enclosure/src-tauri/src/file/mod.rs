@@ -11,7 +11,7 @@ use std::time::SystemTime;
 use crate::error::Error;
 use base64::Engine;
 use chrono::TimeZone;
-use log::info;
+use log::{error, info};
 use serde_json::{Map, Value};
 use tauri::http::HeaderMap;
 use tauri::ipc::{InvokeBody, Request};
@@ -82,12 +82,9 @@ impl FileHandler {
             info!("success");
             return Ok(response);
         } else {
-            let content = String::from_utf8(data.to_vec()).map_err(|err| {
-                return Error::Error(err.to_string()).to_string();
-            })?;
-
+            let (contents, _, _) = encoding_rs::UTF_8.decode(data);
             response.code = 200;
-            response.body = content;
+            response.body = contents.to_string();
             response.suffix_props = SuffixProps {
                 name: suffix.clone(),
                 _type: String::new(),
@@ -136,12 +133,16 @@ impl FileHandler {
     /// 读取文件
     fn read_file(file_path: &str) -> Result<Vec<u8>, String> {
         let mut file = File::open(&file_path).map_err(|err| {
-            return Error::Error(err.to_string()).to_string();
+            let err_msg = Error::Error(err.to_string()).to_string();
+            error!("{},{},{}", file!(), line!(), err_msg);
+            return err_msg;
         })?;
 
         let mut contents: Vec<u8> = Vec::new();
         file.read_to_end(&mut contents).map_err(|err| {
-            return Error::Error(err.to_string()).to_string();
+            let err_msg = Error::Error(err.to_string()).to_string();
+            error!("{},{},{}", file!(), line!(), err_msg);
+            return err_msg;
         })?;
 
         Ok(contents)
@@ -150,7 +151,9 @@ impl FileHandler {
     /// 读取文件流
     fn read_file_buffer(file_path: &str) -> Result<BufReader<File>, String> {
         let file = File::open(&file_path).map_err(|err| {
-            return Error::Error(err.to_string()).to_string();
+            let err_msg = Error::Error(err.to_string()).to_string();
+            error!("{},{},{}", file!(), line!(), err_msg);
+            return err_msg;
         })?;
 
         Ok(BufReader::new(file))
@@ -167,12 +170,20 @@ impl FileHandler {
 
         let mut file_name = String::new();
         if let Some(filename) = filename {
-            let name = filename.to_str().map_err(|err| Error::Error(err.to_string()).to_string())?;
+            let name = filename.to_str().map_err(|err| {
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
+            })?;
             file_name = name.to_string();
         }
 
         // decode filename
-        let file_name = urlencoding::decode(&file_name).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let file_name = urlencoding::decode(&file_name).map_err(|err| {
+            let err_msg = Error::Error(err.to_string()).to_string();
+            error!("{},{},{}", file!(), line!(), err_msg);
+            return err_msg;
+        })?;
         let file_name = file_name.to_string();
         info!("filename decode: {:#?}", &file_name);
         return Ok(file_name)
@@ -192,7 +203,9 @@ impl FileHandler {
     /// 获取文件属性
     pub(crate) fn get_file_props(file_path: &str) -> Result<FileProps, String> {
         let metadata: Metadata = fs::metadata(file_path).map_err(|err| {
-            return Error::Error(err.to_string()).to_string();
+            let err_msg = Error::Error(err.to_string()).to_string();
+            error!("{},{},{}", file!(), line!(), err_msg);
+            return err_msg;
         })?;
 
         let mut file_props = FileProps::default();
@@ -219,7 +232,7 @@ impl FileHandler {
         let mode = metadata.permissions().mode();
         file_props.permissions = Self::format_permissions(mode);
 
-        // 判断文件是不是可以执行
+        // 判断文件是不是可以执行(此处有问题?)
         /*
           0o111 的二进制表示是 0b011100100，其中：
             最后一位 001 表示其他用户的执行权限。
@@ -227,7 +240,8 @@ impl FileHandler {
             最高一位 011 表示文件所有者的执行权限。
             如果一个文件的权限位设置为 0o111，那么文件的所有者、所属组和其他用户都具有执行权限，即可以运行该文件
          */
-        file_props.executable = mode & 0o111 != 0;
+        // file_props.executable = mode & 0o111 != 0;
+        file_props.executable = false;
         Ok(file_props)
     }
 
@@ -261,7 +275,9 @@ impl FileHandler {
     /// 读取文件夹下的所有文件
     pub(crate) fn read_files(path: &Path, unzip_path_str: &str, size: &mut u64, files: &mut Vec<FileProps>) -> Result<(), String> {
         let entries = fs::read_dir(path).map_err(|err| {
-            return Error::Error(err.to_string()).to_string();
+            let err_msg = Error::Error(err.to_string()).to_string();
+            error!("{},{},{}", file!(), line!(), err_msg);
+            return err_msg;
         })?;
 
         for entry in entries {

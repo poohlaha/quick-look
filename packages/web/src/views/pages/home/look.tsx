@@ -11,7 +11,7 @@ interface ILookProps {
   fileName: string
   content: string | { [K: string]: any }
   loading: boolean
-  suffixProps: Array<string>
+  suffixProps: { [K: string]: any }
 }
 
 const Look: React.FC<ILookProps> = (props: ILookProps): ReactElement => {
@@ -45,13 +45,25 @@ const Look: React.FC<ILookProps> = (props: ILookProps): ReactElement => {
     let suffixProps: { [K: string]: any } = props.suffixProps || {}
     if (suffixProps.type === 'image') {
       return (
-        <div className="image-wrapper">
-          <img src={props.content || ''} className="wh100" />
+        <div className="image-wrapper flex-center wh100">
+          <img src={props.content || ''} />
         </div>
       )
     }
 
-    let language = prism.languages[suffix]
+    if (suffix === 'plist') {
+      suffix = 'xml'
+    } else if (suffix === 'rs') {
+      suffix = 'rust'
+    }
+
+    let language
+    try {
+      language = prism.languages[suffix] || prism.languages['txt']
+    } catch (e) {
+      console.warn('no language has found, use default `txt`')
+      language = prism.languages['txt']
+    }
 
     const html = prism.highlight(props.content, language, suffix)
     return (

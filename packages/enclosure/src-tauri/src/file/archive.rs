@@ -5,7 +5,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
 use flate2::read::GzDecoder;
-use log::info;
+use log::{error, info};
 use crate::analysis::{FileProps, HttpResponse, SuffixProps};
 use crate::error::Error;
 use crate::file::{ARCHIVE_SUFFIXES, FileHandler};
@@ -64,7 +64,9 @@ impl Archive {
         // 如果存在, 则删除目录
         if unzip_dir.exists() {
             fs::remove_dir_all(unzip_dir.clone()).map_err(|err| {
-                return Error::Error(err.to_string()).to_string();
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
             })?;
         }
 
@@ -116,11 +118,15 @@ impl Archive {
     pub fn prepare_zip(reader: BufReader<File>, exec_path: &PathBuf, response: HttpResponse) -> Result<HttpResponse, String> {
         let res = Self::decompress("Zip Archive".to_string(), reader, exec_path, response, |reader, exec_path, _| {
             let mut archive = zip::ZipArchive::new(reader).map_err(|err| {
-                return Error::Error(err.to_string()).to_string();
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
             })?;
 
             archive.extract(exec_path).map_err(|err| {
-                return Error::Error(err.to_string()).to_string();
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
             })?;
 
             Ok(())
@@ -136,7 +142,9 @@ impl Archive {
             let gz_decoder = GzDecoder::new(reader);
             let mut file_archive = tar::Archive::new(gz_decoder);
             file_archive.unpack(exec_path).map_err(|err| {
-                return Error::Error(err.to_string()).to_string();
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
             })?;
             Ok(())
         })?;

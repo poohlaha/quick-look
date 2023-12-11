@@ -13,11 +13,11 @@ import Utils from '@utils/utils'
 class HomeStore extends BaseStore {
   @observable fileName = '' // 文件名称
   @observable content: string | { [K: string]: any } = {} // 文件内容
-  @observable suffixProps: Array<string> = [] // 图片后续列表
+  @observable suffixProps: { [K: string]: any } = [] // 图片后续列表
   @observable imageProps: { [K: string]: number | string } = {} // 图片属性
   @observable detailContent = {
     data: '',
-    fileName: '',
+    fileName: ''
   }
 
   @observable detailLoading: boolean = false
@@ -29,7 +29,7 @@ class HomeStore extends BaseStore {
     this.loading = false
   }
 
-  async readDetailFile(path: string, name: string) {
+  async readDetailFile(path: string, name: string, callback?: Function) {
     try {
       if (Utils.isBlank(path) || Utils.isBlank(name)) return
       this.detailContent = {
@@ -43,11 +43,17 @@ class HomeStore extends BaseStore {
       let result: { [K: string]: any } = await invoke('file_handler', { filePath: path }, { headers: { fileName: encodeURIComponent(this.detailContent.fileName) } })
       this.detailLoading = false
 
+      if (Utils.isBlank(result.body || '')) {
+        TOAST.show({ message: '当前文件不支持查看 !', type: 3})
+        return
+      }
+
       this.suffixProps = result.suffixProps || []
       await info(`readDetailFile suffixProps: ${JSON.stringify(this.suffixProps)}`)
       console.log('readDetailFile suffixProps:', this.suffixProps)
 
       this.detailContent.data = this.analysisResult(result, `读取文件 ${name} 失败!`)
+      callback?.()
     } catch (err: any) {
       this.detailLoading = false
       this.detailContent = {
