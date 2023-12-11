@@ -100,6 +100,8 @@ impl Archive {
             }
         }
 
+        println!("response: {:#?}", response);
+        println!("size: {:#?}", size);
         response.code = 200;
         response.file_props.kind = kind;
         response.file_props.packed = FileHandler::convert_size(size);
@@ -110,6 +112,8 @@ impl Archive {
             _type: String::from("archive"),
             list: ARCHIVE_SUFFIXES.iter().map(|str| str.to_string()).collect()
         };
+
+        println!("response after: {:#?}", response);
 
         Ok(response.clone())
     }
