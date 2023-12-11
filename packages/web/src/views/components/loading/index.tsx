@@ -9,7 +9,6 @@ interface ILoadingProps {
   show: boolean
 }
 const GlobalLoading: React.FC<ILoadingProps> = (props: ILoadingProps): ReactElement | null => {
-
   const render = () => {
     if (!props.show) return null
     return (

@@ -7,14 +7,20 @@ import { observable, action } from 'mobx'
 import BaseStore from '../base/base.store'
 import { invoke } from '@tauri-apps/api/primitives'
 import { info } from '@tauri-apps/plugin-log'
-import {TOAST} from '@utils/base'
+import { TOAST } from '@utils/base'
 import Utils from '@utils/utils'
 
 class HomeStore extends BaseStore {
   @observable fileName = '' // 文件名称
-  @observable content: string | {[K: string]: any} = {} // 文件内容
+  @observable content: string | { [K: string]: any } = {} // 文件内容
   @observable suffixProps: Array<string> = [] // 图片后续列表
-  @observable imageProps: { [K: string]: number | string} = {} // 图片属性
+  @observable imageProps: { [K: string]: number | string } = {} // 图片属性
+  @observable detailContent = {
+    data: '',
+    fileName: '',
+  }
+
+  @observable detailLoading: boolean = false
 
   @action
   reset() {
@@ -23,20 +29,51 @@ class HomeStore extends BaseStore {
     this.loading = false
   }
 
+  async readDetailFile(path: string, name: string) {
+    try {
+      if (Utils.isBlank(path) || Utils.isBlank(name)) return
+      this.detailContent = {
+        data: '',
+        fileName: ''
+      }
+
+      this.detailLoading = true
+      this.detailContent.fileName = name || ''
+
+      let result: { [K: string]: any } = await invoke('file_handler', { filePath: path }, { headers: { fileName: encodeURIComponent(this.detailContent.fileName) } })
+      this.detailLoading = false
+
+      this.suffixProps = result.suffixProps || []
+      await info(`readDetailFile suffixProps: ${JSON.stringify(this.suffixProps)}`)
+      console.log('readDetailFile suffixProps:', this.suffixProps)
+
+      this.detailContent.data = this.analysisResult(result, `读取文件 ${name} 失败!`)
+    } catch (err: any) {
+      this.detailLoading = false
+      this.detailContent = {
+        data: '',
+        fileName: ''
+      }
+      console.error('read file error !', err)
+      TOAST.show({ message: `读取文件 ${name} 失败!`, type: 4 })
+    }
+  }
+
   /**
    * 获取系统信息
    */
   @action
-  async readFile(file: File | null = null, fileProps: {[K: string]: string} = {}) {
+  async readFile(file: File | null = null, fileProps: { [K: string]: string } = {}) {
     try {
       this.imageProps = {}
       this.loading = true
-      let result: {[K: string]: any} = {}
+      let result: { [K: string]: any } = {}
+      this.content = ''
 
       if (file !== null) {
         this.fileName = file.name || ''
         let buffer: ArrayBuffer = await file.arrayBuffer()
-        result = await invoke('file_handler', buffer, { headers: { fileName: encodeURIComponent(this.fileName) }})
+        result = await invoke('file_handler', buffer, { headers: { fileName: encodeURIComponent(this.fileName) } })
       } else if (!Utils.isObjectNull(fileProps)) {
         console.log('fileProps:', fileProps)
         await info(`fileProps: ${JSON.stringify(fileProps)}`)
@@ -50,7 +87,7 @@ class HomeStore extends BaseStore {
           return
         }
 
-        result = await invoke('file_handler', { filePath }, { headers: { fileName: encodeURIComponent(this.fileName) }})
+        result = await invoke('file_handler', { filePath }, { headers: { fileName: encodeURIComponent(this.fileName) } })
       }
 
       console.log('result:', result)
@@ -65,8 +102,13 @@ class HomeStore extends BaseStore {
         this.reset()
         return
       }
-      // await info(`content: ${JSON.stringify(this.content)}`)
 
+      if (typeof this.content === 'object') {
+        let files = this.content.files || []
+        this.changeFiles(files)
+      }
+
+      // await info(`content: ${JSON.stringify(this.content)}`)
       // this.getImageProps(file)
     } catch (err: any) {
       this.reset()
@@ -91,7 +133,7 @@ class HomeStore extends BaseStore {
         const height = img.height
         this.imageProps = {
           width,
-          height
+          height,
         }
       }
 
@@ -99,6 +141,20 @@ class HomeStore extends BaseStore {
     }
 
     reader.readAsDataURL(file)
+  }
+
+  @action
+  changeFiles(files: Array<{ [K: string]: any }> = []) {
+    files.forEach(file => {
+      if (file.files && Array.isArray(file.files)) {
+        this.changeFiles(file.files)
+        file.children = file.files
+        delete file.files
+        if (file.children.length === 0) {
+          delete file.children
+        }
+      }
+    })
   }
 }
 

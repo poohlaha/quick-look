@@ -9,7 +9,7 @@ import homeStore from './modules/home.store'
 export function createStore() {
   return {
     commonStore,
-    homeStore
+    homeStore,
   }
 }
 

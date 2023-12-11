@@ -6,6 +6,7 @@ use std::fs;
 use std::fs::{File, Metadata};
 use std::io::{BufReader, Read};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::path::Path;
 use std::time::SystemTime;
 use crate::error::Error;
 use base64::Engine;
@@ -22,7 +23,7 @@ use crate::file::archive::Archive;
 const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "svg", "bmp"];
 
 /// 压缩包后缀
-const ARCHIVE_SUFFIXES: [&str; 7] = ["zip", "bz2", "gz", "tar", "rar", "7z",  "xz"];
+const ARCHIVE_SUFFIXES: [&str; 8] = ["zip", "bz2", "gz", "zlib", "tar", "rar", "7z",  "xz"];
 
 
 pub struct FileHandler;
@@ -200,6 +201,7 @@ impl FileHandler {
         // 获取文件大小
         let size = Self::convert_size(metadata.size());
         file_props.size = size;
+        file_props.old_size = metadata.size();
 
         // 获取文件或目录的最后修改时间
         let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
@@ -254,5 +256,50 @@ impl FileHandler {
         } else {
             format!("{} bytes", size)
         }
+    }
+
+    /// 读取文件夹下的所有文件
+    pub(crate) fn read_files(path: &Path, unzip_path_str: &str, size: &mut u64, files: &mut Vec<FileProps>) -> Result<(), String> {
+        let entries = fs::read_dir(path).map_err(|err| {
+            return Error::Error(err.to_string()).to_string();
+        })?;
+
+        for entry in entries {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            let path_str = path.to_string_lossy().to_string();
+            let filename = entry.file_name().to_str().unwrap_or("").to_string();
+            let file_props = Self::get_file_props(&path_str)?;
+            let relative_path = path_str.replace(&unzip_path_str, "");
+
+            // suffix
+            let suffix = if path.is_dir() {String::new()} else {FileHandler::get_file_suffix(&filename).to_uppercase()};
+
+            files.push(FileProps {
+                key: path_str.clone(),
+                name: suffix.clone(),
+                suffix: suffix.clone(),
+                prefix: "".to_string(),
+                path: relative_path.clone(),
+                full_path: path_str.clone(),
+                size: if path.is_dir() {String::new()} else {file_props.size},
+                old_size: if path.is_dir() {0} else {file_props.old_size},
+                packed: "".to_string(),
+                modified: file_props.modified,
+                permissions: "".to_string(),
+                executable: file_props.executable,
+                kind: suffix.clone(),
+                is_directory: path.is_dir(),
+                files: vec![],
+            });
+
+            if path.is_dir() {
+                Self::read_files(&path.clone(), &unzip_path_str, size, files)?;
+            } else {
+                *size += file_props.old_size;
+            }
+        }
+
+        Ok(())
     }
 }

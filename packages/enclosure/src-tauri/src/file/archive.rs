@@ -1,8 +1,10 @@
 //! 压缩包处理
 
+use std::{fs};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::{Path, PathBuf};
+use flate2::read::GzDecoder;
 use log::info;
 use crate::analysis::{FileProps, HttpResponse, SuffixProps};
 use crate::error::Error;
@@ -12,71 +14,73 @@ pub struct Archive;
 
 impl Archive {
 
+    /// 获取解压目录
+    fn get_program_dir() -> PathBuf {
+        let path;
+        let data_dir = dirs::data_dir();
+        if data_dir.is_none() {
+            path = dirs::home_dir().unwrap();
+        } else {
+            path = data_dir.unwrap()
+        }
+
+        return path.join(Path::new("QuickLook"));
+    }
+
     pub fn exec(reader: BufReader<File>, response: HttpResponse) -> Result<HttpResponse, String> {
         let suffix = response.file_props.suffix.clone();
 
+        // zip
         let zip = ARCHIVE_SUFFIXES.get(0).unwrap();
         let bz2 = ARCHIVE_SUFFIXES.get(1).unwrap();
 
-        // use zip
+        // flate2 结合 tar
+        let gz = ARCHIVE_SUFFIXES.get(2).unwrap();
+        let zlib = ARCHIVE_SUFFIXES.get(3).unwrap();
+        let tar = ARCHIVE_SUFFIXES.get(4).unwrap();
+
+        // 获取路径(数据目录或home)
+        let path = Self::get_program_dir();
+        info!("uncompress path: {:#?}", path);
+
         if &suffix == zip || &suffix == bz2 {
-            return Self::prepare_zip(reader, response);
+            return Self::prepare_zip(reader, &path, response);
+        } else if &suffix == gz || &suffix == zlib || &suffix == tar {
+            return Self::prepare_tar(reader, &path, response);
         }
 
         return Ok(response);
     }
 
-    pub fn prepare_zip(reader: BufReader<File>, mut response: HttpResponse) -> Result<HttpResponse, String> {
-        let mut archive = zip::ZipArchive::new(reader).map_err(|err| {
-            return Error::Error(err.to_string()).to_string();
-        })?;
+    /// 解压
+    fn decompress<F>(kind: String, reader: BufReader<File>, exec_path: &PathBuf, mut response: HttpResponse, func: F) -> Result<HttpResponse, String>
+    where
+        F: FnOnce(BufReader<File>, &PathBuf, HttpResponse) -> Result<(), String>
+    {
+        // 解压并放到可执行文件目录
+        let name = &response.file_props.name;
+        let unzip_dir = exec_path.join(Path::new(name));
 
-        let mut files: Vec<FileProps> = Vec::new();
-        let mut zip_packed = 0;
-
-        for i in 0 .. archive.len() {
-            let file = archive.by_index(i).map_err(|err| {
+        // 如果存在, 则删除目录
+        if unzip_dir.exists() {
+            fs::remove_dir_all(unzip_dir.clone()).map_err(|err| {
                 return Error::Error(err.to_string()).to_string();
             })?;
-
-
-            let out_path: &Path = file.enclosed_name().unwrap();
-
-            // 实际大小
-            let size = if file.is_dir() {String::new()} else {FileHandler::convert_size(file.size())};
-
-            // 压缩大小
-            let packed = if file.is_dir() {String::new()} else {FileHandler::convert_size(file.compressed_size())};
-
-            zip_packed += file.compressed_size();
-
-            // 最后修改时间
-            let modified = file.last_modified();
-            let modified = format!("{}/{}/{} {}:{}", modified.year(), modified.month(), modified.day(), modified.hour(), modified.minute());
-
-            let suffix = FileHandler::get_file_suffix(file.name()).to_uppercase();
-            files.push(FileProps {
-                key: file.name().to_string(),
-                name: file.name().to_string(),
-                suffix: suffix.clone(),
-                prefix: "".to_string(),
-                path: out_path.to_string_lossy().to_string(),
-                size,
-                packed,
-                modified,
-                permissions: "".to_string(),
-                executable: false,
-                kind: suffix.clone(),
-                is_directory: file.is_dir(),
-                files: vec![],
-            });
         }
+
+        func(reader, &unzip_dir, response.clone())?;
+
+        // 读取目录下的所有文件
+        let mut files: Vec<FileProps> = Vec::new();
+        let mut size: u64 = 0;
+
+        let unzip_dir_str = unzip_dir.as_path().to_string_lossy().to_string();
+        FileHandler::read_files(unzip_dir.as_path(), &unzip_dir_str, &mut size, &mut files)?;
 
         // 按目录归纳文件
         let props = Self::organize_files(files);
-        println!("props: {:#?}", props);
+
         let mut files = props.files.clone();
-        println!("files: {:#?}", files);
         if files.len() > 0 {
             // 判断第一个名称是不是项目名称, 如果是, 则忽略掉
             let first_file = files.get(0).unwrap();
@@ -95,8 +99,9 @@ impl Archive {
         }
 
         response.code = 200;
-        response.file_props.kind = "Zip Archive".to_string();
-        response.file_props.packed = FileHandler::convert_size(zip_packed);
+        response.file_props.kind = kind;
+        response.file_props.packed = FileHandler::convert_size(size);
+        response.file_props.size = response.file_props.size;
         response.file_props.files = files;
         response.suffix_props = SuffixProps {
             name: response.file_props.suffix.clone(),
@@ -104,8 +109,40 @@ impl Archive {
             list: ARCHIVE_SUFFIXES.iter().map(|str| str.to_string()).collect()
         };
 
+        Ok(response.clone())
+    }
+
+    /// zip、bz2
+    pub fn prepare_zip(reader: BufReader<File>, exec_path: &PathBuf, response: HttpResponse) -> Result<HttpResponse, String> {
+        let res = Self::decompress("Zip Archive".to_string(), reader, exec_path, response, |reader, exec_path, _| {
+            let mut archive = zip::ZipArchive::new(reader).map_err(|err| {
+                return Error::Error(err.to_string()).to_string();
+            })?;
+
+            archive.extract(exec_path).map_err(|err| {
+                return Error::Error(err.to_string()).to_string();
+            })?;
+
+            Ok(())
+        })?;
+
         info!("success");
-        Ok(response)
+        Ok(res)
+    }
+
+    /// gz、zlib、tar
+    pub fn prepare_tar(reader: BufReader<File>, exec_path: &PathBuf, response: HttpResponse) -> Result<HttpResponse, String> {
+        let res = Self::decompress("Tar Archive".to_string(), reader, exec_path, response, |reader, exec_path, _| {
+            let gz_decoder = GzDecoder::new(reader);
+            let mut file_archive = tar::Archive::new(gz_decoder);
+            file_archive.unpack(exec_path).map_err(|err| {
+                return Error::Error(err.to_string()).to_string();
+            })?;
+            Ok(())
+        })?;
+
+        info!("success");
+        Ok(res)
     }
 
     /// 按目录归纳文件
@@ -133,7 +170,7 @@ impl Archive {
                     new_dir.name = name.clone();
                     new_dir.path = full_path.clone().as_path().to_string_lossy().to_string();
                     new_dir.files = Vec::new();
-                    new_dir.suffix = FileHandler::get_file_suffix(&name);
+                    new_dir.suffix = if props.is_directory {String::new()} else {FileHandler::get_file_suffix(&name)};
                     new_dir.kind = FileHandler::get_file_suffix(&name);
 
                     current_dir.files.push(new_dir);

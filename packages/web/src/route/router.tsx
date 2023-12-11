@@ -14,6 +14,6 @@ export const routes: RouteInterface[] = [
     exact: true,
     component: lazy(() => import(/* webpackChunkName:'lazy' */ '@pages/home/index')),
     auth: false,
-    title: '首页'
+    title: '首页',
   },
 ]

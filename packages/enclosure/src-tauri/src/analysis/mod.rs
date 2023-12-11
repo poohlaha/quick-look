@@ -20,8 +20,11 @@ pub(crate) struct FileProps {
     pub suffix: String,
     pub prefix: String,
     pub path: String,
+    #[serde(rename = "fullPath")]
+    pub full_path: String,
     pub kind: String,
     pub size: String,
+    pub old_size: u64,
     pub packed: String,
     pub modified: String,
     pub permissions: String,

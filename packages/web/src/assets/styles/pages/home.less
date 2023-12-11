@@ -3,11 +3,6 @@
  * @date 2023-12-06
  * @author poohlaha
  */
-/**
- * @fileOverview dashboard
- * @date 2023-12-06
- * @author poohlaha
- */
 .home-page {
   font-size: @font;
 
@@ -132,6 +127,12 @@
 
     .list {
       margin-top: 30px;
+
+      &.no-show-page {
+        .ant-pagination {
+          display: none!important;
+        }
+      }
 
       .ant-table-cell {
         .name-cell {

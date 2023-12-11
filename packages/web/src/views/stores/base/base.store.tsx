@@ -3,11 +3,13 @@
  * @date 2023-04-12
  * @author poohlaha
  */
-import {action, observable} from 'mobx'
+import { action, observable } from 'mobx'
 import Utils from '@utils/utils'
 import { COMMON, TOAST } from '@utils/base'
 
 export default class BaseStore {
+  @observable currentPage: number = 1
+  @observable pageSize: number = 10
   @observable loading: boolean = false
 
   /**
@@ -29,9 +31,9 @@ export default class BaseStore {
   }
 
   @action
-  analysisResult = (result: {[K: string]: any} = {}, errMsg: string = '') => {
+  analysisResult = (result: { [K: string]: any } = {}, errMsg: string = '') => {
     if (Utils.isObjectNull(result)) {
-      TOAST.show({ message: errMsg  || COMMON.getLanguageText('ERROR_MESSAGE'), type: 4 })
+      TOAST.show({ message: errMsg || COMMON.getLanguageText('ERROR_MESSAGE'), type: 4 })
       return
     }
 
@@ -54,14 +56,14 @@ export default class BaseStore {
 
       if (!isImage) {
         content = content
-            .replace(/^"/, '') // 去掉开头的双引号
-            .replace(/"$/, '') // 去掉末尾的双引号
-            .replace(/\\"/g, '"') // 将多次转义的双引号还原为单次转义的双引号
-            .replace(/\\r/g, '\n')
-            .replace(/\\n/g, '\n')
-            .replace(/↵/g, '')
-            .replace(/\\t/g, '  ')
-            .replace(/\t/g, '  ')
+          .replace(/^"/, '') // 去掉开头的双引号
+          .replace(/"$/, '') // 去掉末尾的双引号
+          .replace(/\\"/g, '"') // 将多次转义的双引号还原为单次转义的双引号
+          .replace(/\\r/g, '\n')
+          .replace(/\\n/g, '\n')
+          .replace(/↵/g, '')
+          .replace(/\\t/g, '  ')
+          .replace(/\t/g, '  ')
       }
 
       return content

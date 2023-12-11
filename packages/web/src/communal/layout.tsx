@@ -30,23 +30,20 @@ const RenderRoutes = (routes: RouteInterface[]) => {
   if (usedRoutes.length > 0) {
     return (
       <Routes>
-        {
-          routes.map((route: RouteInterface, index: number) => {
-            return (
-              <Route
-                key={index}
-                path={route.path}
-                element={
-                  <Suspense fallback={<Loading show={true} />}>
-                    <ScrollToTop />
-                    <route.component routes={route.routes || []} />
-                  </Suspense>
-                }
-              >
-              </Route>
-            )
-          })
-        }
+        {routes.map((route: RouteInterface, index: number) => {
+          return (
+            <Route
+              key={index}
+              path={route.path}
+              element={
+                <Suspense fallback={<Loading show={true} />}>
+                  <ScrollToTop />
+                  <route.component routes={route.routes || []} />
+                </Suspense>
+              }
+            ></Route>
+          )
+        })}
       </Routes>
     )
   } else {
@@ -74,12 +71,9 @@ const switchSkin = (skin: string = '') => {
 const Layout = (): ReactElement => {
   const { commonStore } = useStore()
 
-  useEffect(
-    () => {
-      switchSkin(commonStore.skin)
-    },
-    [commonStore.skin]
-  )
+  useEffect(() => {
+    switchSkin(commonStore.skin)
+  }, [commonStore.skin])
 
   const render = () => {
     return RenderRoutes(routes)
