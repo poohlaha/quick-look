@@ -10,24 +10,12 @@ use log::{error, info};
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use std::{fs, io};
+use std::{io};
 use xz2::read::XzEncoder;
 
 pub struct Archive;
 
 impl Archive {
-  /// 获取解压目录
-  fn get_program_dir() -> PathBuf {
-    let path;
-    let data_dir = dirs::data_dir();
-    if data_dir.is_none() {
-      path = dirs::home_dir().unwrap();
-    } else {
-      path = data_dir.unwrap()
-    }
-
-    return path.join(Path::new("QuickLook"));
-  }
 
   pub fn exec(reader: BufReader<File>, mut response: HttpResponse) -> Result<HttpResponse, String> {
     let suffix = response.file_props.suffix.clone();
@@ -55,38 +43,34 @@ impl Archive {
     // xz
     let xz = ARCHIVE_SUFFIXES.get(8).unwrap();
 
-    // 获取路径(数据目录或home)
-    let path = Self::get_program_dir();
-    info!("uncompress path: {:#?}", path);
-
     let name = &response.file_props.name;
-
+    let temp_path = FileHandler::create_temp_dir(&response.file_props.prefix)?;
     if &suffix == zip {
-      return Self::prepare_zip(reader, &path, response);
+      return Self::prepare_zip(reader, &temp_path, response);
     }
 
     if &suffix == bz2 {
-      return Self::prepare_bz2(reader, &path, response);
+      return Self::prepare_bz2(reader, &temp_path, response);
     }
 
     if &suffix == gz || &suffix == zlib || &suffix == tar {
-      return Self::prepare_tar(reader, &path, response);
+      return Self::prepare_tar(reader, &temp_path, response);
     }
 
     if &suffix == rar {
-      return Self::prepare_rar(reader, &path, response);
+      return Self::prepare_rar(reader, &temp_path, response);
     }
 
     if name.ends_with(tar_xz) {
-      return Self::prepare_tar_xz(reader, &path, response);
+      return Self::prepare_tar_xz(reader, &temp_path, response);
     }
 
     if &suffix == xz {
-      return Self::prepare_xz(reader, &path, response);
+      return Self::prepare_xz(reader, &temp_path, response);
     }
 
     if &suffix == z7 {
-      return Self::prepare_7z(reader, &path, response);
+      return Self::prepare_7z(reader, &temp_path, response);
     }
 
     response.error = "读取压缩包失败, 不支持的格式".to_string();
@@ -97,31 +81,13 @@ impl Archive {
   fn decompress<F>(
     kind: String,
     reader: BufReader<File>,
-    exec_path: &PathBuf,
+    unzip_path: &PathBuf,
     mut response: HttpResponse,
     func: F,
   ) -> Result<HttpResponse, String>
   where
     F: FnOnce(BufReader<File>, &PathBuf, HttpResponse) -> Result<(), String>,
   {
-    // 解压并放到可执行文件目录
-    let name = response.file_props.prefix.clone();
-    let unzip_path = exec_path.join(Path::new(&name));
-
-    // 如果存在, 则删除目录
-    if unzip_path.exists() {
-      fs::remove_dir_all(unzip_path.clone()).map_err(|err| {
-        let err_msg = Error::Error(err.to_string()).to_string();
-        error!("{},{},{}", file!(), line!(), err_msg);
-        return err_msg;
-      })?;
-    }
-
-    fs::create_dir_all(&unzip_path).map_err(|err| {
-      let err_msg = Error::Error(err.to_string()).to_string();
-      error!("{},{},{}", file!(), line!(), err_msg);
-      return err_msg;
-    })?;
 
     func(reader, &unzip_path, response.clone())?;
 

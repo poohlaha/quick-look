@@ -1,0 +1,42 @@
+/**
+ * @fileOverview preview
+ * @date 2023-12-12
+ * @author poohlaha
+ */
+.preview {
+
+  .preview-wrapper {
+
+    .preview-left {
+      width: 250px;
+      background: @color_menu_active;
+
+      .image-box:first-child {
+        margin-top: 24px;
+      }
+
+      .image-box {
+        width: 108px;
+        height: 150px;
+        margin-top: 8px;
+
+        img {
+          height: 120px;
+        }
+
+        .text {
+          font-weight: bold;
+          height: 30px;
+        }
+      }
+    }
+
+    .preview-right {
+      background: @color_svg;
+
+      .image-box:not(:last-child) {
+        margin-bottom: 10px;
+      }
+    }
+  }
+}

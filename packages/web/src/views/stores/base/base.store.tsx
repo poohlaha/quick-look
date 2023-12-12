@@ -45,6 +45,16 @@ export default class BaseStore {
 
     let content = result.body || ''
     const suffixProps = result.suffixProps || {}
+
+    try {
+      let contents = JSON.parse(content)
+      if (Array.isArray(contents)) {
+        return contents || []
+      }
+    } catch (e) {
+      console.log('body not array !')
+    }
+
     if (!Utils.isBlank(content)) {
       let fileProps = result.fileProps || {}
       let suffix = fileProps.suffix || ''

@@ -11,6 +11,7 @@ import Loading from '@views/components/loading/loading'
 import Utils from '@utils/utils'
 import { open } from '@tauri-apps/plugin-dialog'
 import Archive from '@pages/home/archive'
+import Preview from '@pages/home/preview'
 import Look from '@pages/home/look'
 
 const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
@@ -86,8 +87,19 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
   }
 
   const getLookHtml = () => {
-    if (typeof homeStore.content === 'object') {
+    if (homeStore.suffixProps.type === 'archive') {
       return <Archive />
+    }
+
+    if (homeStore.suffixProps.type === 'preview') {
+      return (
+          <Preview
+              fileName={homeStore.fileName || ''}
+              content={homeStore.content || []}
+              loading={homeStore.loading}
+              suffixProps={homeStore.suffixProps || []}
+          />
+      )
     }
 
     return (
@@ -105,10 +117,10 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
     return (
       <div className="page home-page flex-direction-column wh100">
         {!Utils.isBlank(homeStore.fileName) && (
-          <div className="file-content flex-align-center">
-            <div className="file flex-align-center flex-1">
+          <div className="file-content flex-align-center w100%">
+            <div className="file flex-align-center flex-1 overflow-hidden">
               <p className="text">文件名:</p>
-              <p className="name">{homeStore.fileName || ''}</p>
+              <p className="name flex-1 over-ellipsis overflow-hidden">{homeStore.fileName || ''}</p>
             </div>
 
             <div className="file-right">
@@ -124,7 +136,7 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
           </div>
         )}
 
-        <div className={`wrapper flex-1 overflow-auto ${empty ? 'is-empty' : ''}`}>
+        <div className={`flex-1 ${empty ? 'is-empty' : ''} ${homeStore.suffixProps.type === 'preview' ? '' : 'wrapper overflow-auto '}`}>
           {empty ? getEmptyHtml() : getLookHtml()}
         </div>
 

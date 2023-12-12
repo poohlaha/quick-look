@@ -1,6 +1,7 @@
 //! 文件操作
 
 mod archive;
+mod preview;
 
 use crate::analysis::{FileProps, HttpResponse, SuffixProps};
 use crate::error::Error;
@@ -13,14 +14,25 @@ use std::fs;
 use std::fs::{File, Metadata};
 use std::io::{BufReader, Read};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use tauri::http::HeaderMap;
 use tauri::ipc::{InvokeBody, Request};
+use crate::file::preview::Preview;
 
 /// 图片后缀
 const IMAGE_SUFFIXES: [&str; 11] = [
   "jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "svg", "bmp",
+];
+
+const OTHER_SUFFIX: [&str; 7] = [
+  "pdf",
+  "xls",
+  "xlsx",
+  "doc",
+  "docx",
+  "ppt",
+  "pptx"
 ];
 
 /// 压缩包后缀
@@ -31,6 +43,43 @@ const ARCHIVE_SUFFIXES: [&str; 9] = [
 pub struct FileHandler;
 
 impl FileHandler {
+  /// 获取解压目录
+  pub fn get_program_dir() -> PathBuf {
+    let path;
+    let data_dir = dirs::data_dir();
+    if data_dir.is_none() {
+      path = dirs::home_dir().unwrap();
+    } else {
+      path = data_dir.unwrap()
+    }
+
+    return path.join(Path::new("QuickLook"));
+  }
+
+  /// 创建临时目录
+  pub fn create_temp_dir(name: &str) -> Result<PathBuf, String> {
+    // 获取路径(数据目录或home)
+    let exec_path = FileHandler::get_program_dir();
+    info!("uncompress path: {:#?}", exec_path);
+
+    let unzip_path = exec_path.join(Path::new(&name));
+    if unzip_path.exists() {
+      fs::remove_dir_all(unzip_path.clone()).map_err(|err| {
+        let err_msg = Error::Error(err.to_string()).to_string();
+        error!("{},{},{}", file!(), line!(), err_msg);
+        return err_msg;
+      })?;
+    }
+
+    fs::create_dir_all(&unzip_path).map_err(|err| {
+      let err_msg = Error::Error(err.to_string()).to_string();
+      error!("{},{},{}", file!(), line!(), err_msg);
+      return err_msg;
+    })?;
+
+    Ok(unzip_path)
+  }
+
   /// 通过文件流读取文件
   pub fn exec(request: Request) -> Result<HttpResponse, String> {
     let mut response = HttpResponse::default();
@@ -63,37 +112,49 @@ impl FileHandler {
     return Ok(response);
   }
 
+  /// 生成 base64 图片
+  fn generate_image(data: Vec<u8>) -> String {
+    let str = base64::engine::general_purpose::STANDARD.encode::<Vec<u8>>(data);
+    let mut content = String::from("data:image/png;base64,");
+    content.push_str(&str);
+    return content;
+  }
+
   /// 处理二进制数据
   fn prepare_blob(data: &Vec<u8>, mut response: HttpResponse) -> Result<HttpResponse, String> {
     let suffix = response.file_props.suffix.clone();
-    if IMAGE_SUFFIXES.contains(&suffix.as_str()) {
-      // image suffix
-      // 转成 base64
-      let str = base64::engine::general_purpose::STANDARD.encode::<Vec<u8>>(data.clone());
-      let mut content = String::from("data:image/png;base64,");
-      content.push_str(&str);
-
+    let suffix = suffix.as_str();
+    // image suffix
+    if IMAGE_SUFFIXES.contains(&suffix) {
+      let content = Self::generate_image(data.clone());
       response.code = 200;
       response.body = content;
       response.suffix_props = SuffixProps {
-        name: suffix.clone(),
+        name: suffix.to_string(),
         _type: String::from("image"),
         list: IMAGE_SUFFIXES.iter().map(|str| str.to_string()).collect(),
       };
       info!("success");
       return Ok(response);
-    } else {
-      let (contents, _, _) = encoding_rs::UTF_8.decode(data);
-      response.code = 200;
-      response.body = contents.to_string();
-      response.suffix_props = SuffixProps {
-        name: suffix.clone(),
-        _type: String::new(),
-        list: Vec::new(),
-      };
-      info!("success");
-      return Ok(response);
     }
+
+    // pdf
+    if OTHER_SUFFIX.contains(&suffix) {
+      return Preview::exec(response.clone());
+    }
+
+    // read content
+    let (contents, _, _) = encoding_rs::UTF_8.decode(data);
+    response.code = 200;
+    response.body = contents.to_string();
+    response.suffix_props = SuffixProps {
+      name: suffix.to_string(),
+      _type: String::new(),
+      list: Vec::new(),
+    };
+    info!("success");
+    return Ok(response);
+
   }
 
   /// 读取 json 数据

@@ -12,8 +12,8 @@ import Utils from '@utils/utils'
 
 class HomeStore extends BaseStore {
   @observable fileName = '' // 文件名称
-  @observable content: string | { [K: string]: any } = {} // 文件内容
-  @observable suffixProps: { [K: string]: any } = [] // 图片后续列表
+  @observable content: any = {} // 文件内容
+  @observable suffixProps: { [K: string]: any } = {} // 图片后续列表
   @observable imageProps: { [K: string]: number | string } = {} // 图片属性
   @observable fileProps: { [K: string]: any } = {} // 文件属性
   @observable detailContent = {
