@@ -134,7 +134,6 @@ impl Archive {
 
     // 按目录归纳文件
     let props = Self::organize_files(files);
-    println!("props: {:#?}", props);
 
     let mut files = props.files.clone();
     if files.len() > 0 {
@@ -162,6 +161,7 @@ impl Archive {
     response.file_props.packed = response.file_props.size;
     response.file_props.size = FileHandler::convert_size(size);
     response.file_props.files = files;
+    response.file_props.full_path = unzip_dir_str;
     response.suffix_props = SuffixProps {
       name: response.file_props.suffix.clone(),
       _type: String::from("archive"),

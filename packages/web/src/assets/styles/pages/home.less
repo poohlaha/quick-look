@@ -23,12 +23,16 @@
     }
 
     .file-right {
-      button {
+      button.reset {
         color: @theme_orange;
 
         &:hover {
           background: @color_menu_active;
         }
+      }
+
+      button:not(:last-child) {
+        margin-right: 10px;
       }
     }
   }

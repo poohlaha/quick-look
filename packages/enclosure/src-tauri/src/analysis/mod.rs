@@ -1,8 +1,10 @@
+use crate::error::Error;
 use crate::file::FileHandler;
-use log::info;
+use log::{error, info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
+use std::path::Path;
 use tauri::ipc::Request;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
@@ -61,4 +63,50 @@ pub fn read_file_association() {
 #[tauri::command]
 pub fn file_handler(request: Request) -> Result<HttpResponse, String> {
   FileHandler::exec(request)
+}
+
+/// 解压压缩包
+#[tauri::command]
+pub fn unarchive(file_path: &str, full_path: &str) -> Result<HttpResponse, String> {
+  let mut response = HttpResponse::default();
+  let unarchive_path = Path::new(file_path);
+  let archive_path = Path::new(full_path);
+
+  if !unarchive_path.exists() || !archive_path.exists() {
+    response.error = "文件解压失败, 路径不存在!".to_string();
+    return Ok(response);
+  }
+
+  if unarchive_path.is_dir() {
+    response.error = format!("{} is a directory !", file_path);
+    return Ok(response);
+  }
+
+  let download_path = unarchive_path.parent();
+  if download_path.is_none() {
+    response.error = "文件解压失败, 父路径不存在!".to_string();
+    return Ok(response);
+  }
+
+  let download_path = download_path.unwrap();
+  if !download_path.exists() {
+    response.error = "文件解压失败, 父路径不存在!".to_string();
+    return Ok(response);
+  }
+
+  // 拷贝目录
+  let mut copy_options = fs_extra::dir::CopyOptions::new();
+  copy_options.overwrite = true;
+
+  let download_path = download_path.to_string_lossy().to_string();
+
+  fs_extra::copy_items(&[full_path], &download_path, &copy_options).map_err(|err| {
+    let err_msg = Error::Error(err.to_string()).to_string();
+    error!("{},{},{}", file!(), line!(), err_msg);
+    return err_msg;
+  })?;
+
+  response.code = 200;
+  info!("success");
+  Ok(response)
 }

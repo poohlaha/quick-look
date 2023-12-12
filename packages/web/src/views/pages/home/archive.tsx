@@ -9,7 +9,7 @@ import Utils from '@utils/utils'
 import { Table, Drawer } from 'antd'
 import Look from '@pages/home/look'
 import Loading from '@views/components/loading/loading'
-import {observer} from 'mobx-react-lite'
+import { observer } from 'mobx-react-lite'
 
 const Archive: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
   const { homeStore } = useStore()
@@ -106,8 +106,8 @@ const Archive: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
           hasPreview = true
         }
         return hasPreview ? <a onClick={() => onShowDrawer(record.fullPath || '', record.name || '')}>查看</a> : ''
-      }
-    }
+      },
+    },
   ]
 
   const onShowDrawer = async (path: string, name: string) => {
@@ -176,7 +176,7 @@ const Archive: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
             dataSource={homeStore.content.files || []}
             pagination={{
               showSizeChanger: false,
-              pageSize: homeStore.pageSize
+              pageSize: homeStore.pageSize,
             }}
           />
         </div>
@@ -189,16 +189,14 @@ const Archive: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
             onClose={() => setShowDrawer(false)}
             open={showDrawer}
           >
-            {
-                !homeStore.detailLoading && (
-                    <Look
-                    fileName={homeStore.detailContent?.fileName || ''}
-                    content={homeStore.detailContent?.data || ''}
-                    loading={homeStore.loading}
-                    suffixProps={homeStore.suffixProps || {}}
-                  />
-                )
-            }
+            {!homeStore.detailLoading && (
+              <Look
+                fileName={homeStore.detailContent?.fileName || ''}
+                content={homeStore.detailContent?.data || ''}
+                loading={homeStore.loading}
+                suffixProps={homeStore.suffixProps || {}}
+              />
+            )}
           </Drawer>
         }
 

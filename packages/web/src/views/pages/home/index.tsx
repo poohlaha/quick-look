@@ -112,7 +112,12 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
             </div>
 
             <div className="file-right">
-              <Button type="link" onClick={() => homeStore.reset()}>
+              {homeStore.suffixProps?.type === 'archive' && (
+                <Button type="primary" onClick={async () => homeStore.unarchive()}>
+                  解压
+                </Button>
+              )}
+              <Button className="reset" type="link" onClick={() => homeStore.reset()}>
                 重置
               </Button>
             </div>

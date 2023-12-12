@@ -7,7 +7,7 @@ import { observable, action } from 'mobx'
 import BaseStore from '../base/base.store'
 import { invoke } from '@tauri-apps/api/primitives'
 import { info } from '@tauri-apps/plugin-log'
-import { TOAST } from '@utils/base'
+import { COMMON, TOAST } from '@utils/base'
 import Utils from '@utils/utils'
 
 class HomeStore extends BaseStore {
@@ -15,9 +15,10 @@ class HomeStore extends BaseStore {
   @observable content: string | { [K: string]: any } = {} // 文件内容
   @observable suffixProps: { [K: string]: any } = [] // 图片后续列表
   @observable imageProps: { [K: string]: number | string } = {} // 图片属性
+  @observable fileProps: { [K: string]: any } = {} // 文件属性
   @observable detailContent = {
     data: '',
-    fileName: ''
+    fileName: '',
   }
 
   @observable detailLoading: boolean = false
@@ -34,17 +35,21 @@ class HomeStore extends BaseStore {
       if (Utils.isBlank(path) || Utils.isBlank(name)) return
       this.detailContent = {
         data: '',
-        fileName: ''
+        fileName: '',
       }
 
       this.detailLoading = true
       this.detailContent.fileName = name || ''
 
-      let result: { [K: string]: any } = await invoke('file_handler', { filePath: path }, { headers: { fileName: encodeURIComponent(this.detailContent.fileName) } })
+      let result: { [K: string]: any } = await invoke(
+        'file_handler',
+        { filePath: path },
+        { headers: { fileName: encodeURIComponent(this.detailContent.fileName) } }
+      )
       this.detailLoading = false
 
       if (Utils.isBlank(result.body || '')) {
-        TOAST.show({ message: '当前文件不支持查看 !', type: 3})
+        TOAST.show({ message: '当前文件不支持查看 !', type: 3 })
         return
       }
 
@@ -58,7 +63,7 @@ class HomeStore extends BaseStore {
       this.detailLoading = false
       this.detailContent = {
         data: '',
-        fileName: ''
+        fileName: '',
       }
       console.error('read file error !', err)
       TOAST.show({ message: `读取文件 ${name || ''} 失败!`, type: 4 })
@@ -93,13 +98,18 @@ class HomeStore extends BaseStore {
           return
         }
 
-        result = await invoke('file_handler', { filePath }, { headers: { fileName: encodeURIComponent(this.fileName) } })
+        result = await invoke(
+          'file_handler',
+          { filePath },
+          { headers: { fileName: encodeURIComponent(this.fileName) } }
+        )
       }
 
       console.log('result:', result)
       this.loading = false
 
-      this.suffixProps = result.suffixProps || []
+      this.fileProps = result.fileProps || {}
+      this.suffixProps = result.suffixProps || {}
       await info(`suffixProps: ${JSON.stringify(this.suffixProps)}`)
       console.log('suffixProps:', this.suffixProps)
 
@@ -161,6 +171,34 @@ class HomeStore extends BaseStore {
         }
       }
     })
+  }
+
+  /**
+   * 解压
+   */
+  @action
+  async unarchive() {
+    console.log(this.fileProps)
+    if (Utils.isBlank(this.fileProps.path) || Utils.isBlank(this.fileProps.fullPath || '')) {
+      TOAST.show({ message: '解压失败, 路径不存在!', type: 4 })
+      return
+    }
+
+    this.loading = true
+    let result: { [K: string]: any } = await invoke('unarchive', {
+      filePath: this.fileProps.path,
+      fullPath: this.fileProps.fullPath || '',
+    })
+    this.loading = false
+
+    console.log('result: ', result)
+
+    if (!Utils.isBlank(result.error || '') || result.code !== 200) {
+      TOAST.show({ message: result.error || `解压 ${this.fileProps.name || ''} 失败`, type: 4 })
+      return
+    }
+
+    TOAST.show({ message: `解压 ${this.fileProps.name || ''} 成功`, type: 2 })
   }
 }
 
