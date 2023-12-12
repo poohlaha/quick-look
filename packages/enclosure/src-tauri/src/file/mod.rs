@@ -18,12 +18,11 @@ use tauri::ipc::{InvokeBody, Request};
 use crate::analysis::{FileProps, HttpResponse, SuffixProps};
 use crate::file::archive::Archive;
 
-
 /// 图片后缀
 const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "svg", "bmp"];
 
 /// 压缩包后缀
-const ARCHIVE_SUFFIXES: [&str; 8] = ["zip", "bz2", "gz", "zlib", "tar", "rar", "7z",  "xz"];
+const ARCHIVE_SUFFIXES: [&str; 9] = ["zip", "bz2", "gz", "zlib", "tar", "rar", "7z", "tar.xz", "xz"];
 
 
 pub struct FileHandler;

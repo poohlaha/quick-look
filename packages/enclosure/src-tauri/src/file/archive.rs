@@ -1,11 +1,14 @@
 //! 压缩包处理
 
-use std::{fs};
+use std::{fs, io};
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
+use bzip2::Compression;
+use bzip2::read::{BzDecoder, BzEncoder};
 use flate2::read::GzDecoder;
 use log::{error, info};
+use xz2::read::{XzEncoder};
 use crate::analysis::{FileProps, HttpResponse, SuffixProps};
 use crate::error::Error;
 use crate::file::{ARCHIVE_SUFFIXES, FileHandler};
@@ -27,11 +30,13 @@ impl Archive {
         return path.join(Path::new("QuickLook"));
     }
 
-    pub fn exec(reader: BufReader<File>, response: HttpResponse) -> Result<HttpResponse, String> {
+    pub fn exec(reader: BufReader<File>, mut response: HttpResponse) -> Result<HttpResponse, String> {
         let suffix = response.file_props.suffix.clone();
 
         // zip
         let zip = ARCHIVE_SUFFIXES.get(0).unwrap();
+
+        // bz2
         let bz2 = ARCHIVE_SUFFIXES.get(1).unwrap();
 
         // flate2 结合 tar
@@ -39,16 +44,49 @@ impl Archive {
         let zlib = ARCHIVE_SUFFIXES.get(3).unwrap();
         let tar = ARCHIVE_SUFFIXES.get(4).unwrap();
 
+        // rar
+        let rar = ARCHIVE_SUFFIXES.get(5).unwrap();
+
+        // 7z
+        let z7 = ARCHIVE_SUFFIXES.get(6).unwrap();
+
+        // tar.xz
+        let tar_xz = ARCHIVE_SUFFIXES.get(7).unwrap();
+
+        // xz
+        let xz = ARCHIVE_SUFFIXES.get(8).unwrap();
+
         // 获取路径(数据目录或home)
         let path = Self::get_program_dir();
         info!("uncompress path: {:#?}", path);
 
-        if &suffix == zip || &suffix == bz2 {
+        let name = &response.file_props.name;
+
+        if &suffix == zip {
             return Self::prepare_zip(reader, &path, response);
-        } else if &suffix == gz || &suffix == zlib || &suffix == tar {
+        }
+
+        if &suffix == bz2 {
+            return Self::prepare_bz2(reader, &path, response);
+        }
+
+        if &suffix == gz || &suffix == zlib || &suffix == tar {
             return Self::prepare_tar(reader, &path, response);
         }
 
+        if &suffix == rar {
+            return Self::prepare_rar(reader, &path, response);
+        }
+
+        if name.ends_with(tar_xz) {
+            return Self::prepare_tar_xz(reader, &path, response);
+        }
+
+        if &suffix == xz {
+            return Self::prepare_xz(reader, &path, response);
+        }
+
+        response.error = "读取压缩包失败, 不支持的格式".to_string();
         return Ok(response);
     }
 
@@ -58,26 +96,32 @@ impl Archive {
         F: FnOnce(BufReader<File>, &PathBuf, HttpResponse) -> Result<(), String>
     {
         // 解压并放到可执行文件目录
-        let name = &response.file_props.name;
-        let unzip_dir = exec_path.join(Path::new(name));
+        let name = response.file_props.prefix.clone();
+        let unzip_path = exec_path.join(Path::new(&name));
 
         // 如果存在, 则删除目录
-        if unzip_dir.exists() {
-            fs::remove_dir_all(unzip_dir.clone()).map_err(|err| {
+        if unzip_path.exists() {
+            fs::remove_dir_all(unzip_path.clone()).map_err(|err| {
                 let err_msg = Error::Error(err.to_string()).to_string();
                 error!("{},{},{}", file!(), line!(), err_msg);
                 return err_msg;
             })?;
         }
 
-        func(reader, &unzip_dir, response.clone())?;
+        fs::create_dir_all(&unzip_path).map_err(|err| {
+            let err_msg = Error::Error(err.to_string()).to_string();
+            error!("{},{},{}", file!(), line!(), err_msg);
+            return err_msg;
+        })?;
+
+        func(reader, &unzip_path, response.clone())?;
 
         // 读取目录下的所有文件
         let mut files: Vec<FileProps> = Vec::new();
         let mut size: u64 = 0;
 
-        let unzip_dir_str = unzip_dir.as_path().to_string_lossy().to_string();
-        FileHandler::read_files(unzip_dir.as_path(), &unzip_dir_str, &mut size, &mut files)?;
+        let unzip_dir_str = unzip_path.as_path().to_string_lossy().to_string();
+        FileHandler::read_files(unzip_path.as_path(), &unzip_dir_str, &mut size, &mut files)?;
 
         // 按目录归纳文件
         let props = Self::organize_files(files);
@@ -100,12 +144,10 @@ impl Archive {
             }
         }
 
-        println!("response: {:#?}", response);
-        println!("size: {:#?}", size);
         response.code = 200;
         response.file_props.kind = kind;
-        response.file_props.packed = FileHandler::convert_size(size);
-        response.file_props.size = response.file_props.size;
+        response.file_props.packed = response.file_props.size;
+        response.file_props.size = FileHandler::convert_size(size);
         response.file_props.files = files;
         response.suffix_props = SuffixProps {
             name: response.file_props.suffix.clone(),
@@ -113,21 +155,59 @@ impl Archive {
             list: ARCHIVE_SUFFIXES.iter().map(|str| str.to_string()).collect()
         };
 
-        println!("response after: {:#?}", response);
-
         Ok(response.clone())
     }
 
-    /// zip、bz2
+    /// zip
     pub fn prepare_zip(reader: BufReader<File>, exec_path: &PathBuf, response: HttpResponse) -> Result<HttpResponse, String> {
-        let res = Self::decompress("Zip Archive".to_string(), reader, exec_path, response, |reader, exec_path, _| {
+        let res = Self::decompress("ZIP Archive".to_string(), reader, exec_path, response, |reader, unzip_path, _| {
             let mut archive = zip::ZipArchive::new(reader).map_err(|err| {
                 let err_msg = Error::Error(err.to_string()).to_string();
                 error!("{},{},{}", file!(), line!(), err_msg);
                 return err_msg;
             })?;
 
-            archive.extract(exec_path).map_err(|err| {
+            println!("unzip_path: {:#?}", unzip_path);
+            archive.extract(unzip_path).map_err(|err| {
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
+            })?;
+
+            Ok(())
+        })?;
+
+        info!("success");
+        Ok(res)
+    }
+
+    /// bz2
+    pub fn prepare_bz2(reader: BufReader<File>, exec_path: &PathBuf, response: HttpResponse) -> Result<HttpResponse, String> {
+        let res = Self::decompress("BZ2 Archive".to_string(), reader, exec_path, response, |reader, unzip_path, response| {
+            let compressor = BzEncoder::new(reader, Compression::best());
+            let mut decompressor = BzDecoder::new(compressor);
+
+            // 读取解压缩的数据
+            let mut buffer = Vec::new();
+            decompressor.read_to_end(&mut buffer).map_err(|err| {
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
+            })?;
+
+            let bz2 = ARCHIVE_SUFFIXES.get(1).unwrap();
+            let mut name = response.file_props.name.clone();
+            name = name.replace(&format!(".{}", bz2), "");
+
+            let file_path = unzip_path.join(&name);
+
+            let mut output_file = File::create(file_path).map_err(|err| {
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
+            })?;
+
+            output_file.write_all(&buffer).map_err(|err| {
                 let err_msg = Error::Error(err.to_string()).to_string();
                 error!("{},{},{}", file!(), line!(), err_msg);
                 return err_msg;
@@ -142,7 +222,7 @@ impl Archive {
 
     /// gz、zlib、tar
     pub fn prepare_tar(reader: BufReader<File>, exec_path: &PathBuf, response: HttpResponse) -> Result<HttpResponse, String> {
-        let res = Self::decompress("Tar Archive".to_string(), reader, exec_path, response, |reader, exec_path, _| {
+        let res = Self::decompress("TAR Archive".to_string(), reader, exec_path, response, |reader, _, _| {
             let gz_decoder = GzDecoder::new(reader);
             let mut file_archive = tar::Archive::new(gz_decoder);
             file_archive.unpack(exec_path).map_err(|err| {
@@ -150,6 +230,80 @@ impl Archive {
                 error!("{},{},{}", file!(), line!(), err_msg);
                 return err_msg;
             })?;
+            Ok(())
+        })?;
+
+        info!("success");
+        Ok(res)
+    }
+
+    /// rar: `rar a xxx.rar .`
+    pub fn prepare_rar(reader: BufReader<File>, exec_path: &PathBuf, response: HttpResponse) -> Result<HttpResponse, String> {
+        let res = Self::decompress("Rar Archive".to_string(), reader, exec_path, response, |_, unzip_path, response| {
+            let file_path = response.file_props.path.clone();
+            let mut archive = unrar::Archive::new(file_path).extract_to(unzip_path.to_string_lossy().to_string()).map_err(|err| {
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
+            })?;
+
+            archive.process().map_err(|err| {
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
+            })?;
+
+            Ok(())
+        })?;
+
+        info!("success");
+        Ok(res)
+    }
+
+    /// tar.xz
+    pub fn prepare_tar_xz(reader: BufReader<File>, exec_path: &PathBuf, response: HttpResponse) -> Result<HttpResponse, String> {
+        let res = Self::decompress("XZ Archive".to_string(), reader, exec_path, response, |reader, _, _| {
+            let decoder = XzEncoder::new(reader, 9);
+            let mut archive = tar::Archive::new(decoder);
+            archive.unpack(exec_path).map_err(|err| {
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
+            })?;
+
+            Ok(())
+        })?;
+
+        info!("success");
+        Ok(res)
+    }
+
+    /// xz
+    pub fn prepare_xz(reader: BufReader<File>, exec_path: &PathBuf, response: HttpResponse) -> Result<HttpResponse, String> {
+        let res = Self::decompress("XZ Archive".to_string(), reader, exec_path, response, |reader, unzip_path, response| {
+            fs::create_dir_all(unzip_path).map_err(|err| {
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
+            })?;
+
+            let name = &response.file_props.prefix;
+            let file_path = unzip_path.join(name);
+
+            let mut output_file = File::create(&file_path).map_err(|err| {
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
+            })?;
+
+            let mut decoder = XzEncoder::new(reader, 9);
+
+            io::copy(&mut decoder, &mut output_file).map_err(|err| {
+                let err_msg = Error::Error(err.to_string()).to_string();
+                error!("{},{},{}", file!(), line!(), err_msg);
+                return err_msg;
+            })?;
+
             Ok(())
         })?;
 

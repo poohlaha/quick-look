@@ -164,12 +164,10 @@ const Archive: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
               <span>Size:</span>
               <span>{homeStore.content.size || ''}</span>
             </div>
-            {/*
             <div className="desc">
               <span>Packed:</span>
               <span>{homeStore.content.packed || ''}</span>
             </div>
-             */}
           </div>
         </div>
         <div className={`list ${(homeStore.content.files || []).length <= homeStore.pageSize ? 'no-show-page' : ''}`}>

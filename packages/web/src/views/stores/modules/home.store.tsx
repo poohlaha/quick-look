@@ -52,7 +52,7 @@ class HomeStore extends BaseStore {
       await info(`readDetailFile suffixProps: ${JSON.stringify(this.suffixProps)}`)
       console.log('readDetailFile suffixProps:', this.suffixProps)
 
-      this.detailContent.data = this.analysisResult(result, `读取文件 ${name} 失败!`)
+      this.detailContent.data = this.analysisResult(result, `读取文件 ${name || ''} 失败!`)
       callback?.()
     } catch (err: any) {
       this.detailLoading = false
@@ -61,7 +61,7 @@ class HomeStore extends BaseStore {
         fileName: ''
       }
       console.error('read file error !', err)
-      TOAST.show({ message: `读取文件 ${name} 失败!`, type: 4 })
+      TOAST.show({ message: `读取文件 ${name || ''} 失败!`, type: 4 })
     }
   }
 
