@@ -8,15 +8,15 @@ mod file;
 use analysis::{file_handler, read_file_association};
 
 fn main() {
-    tauri::Builder::default()
-        .plugin(tauri_plugin_window::init())
-        .plugin(tauri_plugin_shell::init())
-        .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_log::Builder::default().build())
-        .invoke_handler(tauri::generate_handler![file_handler])
-        .run(tauri::generate_context!())
-        .expect("error while running QuickLook application");
+  tauri::Builder::default()
+    .plugin(tauri_plugin_window::init())
+    .plugin(tauri_plugin_shell::init())
+    .plugin(tauri_plugin_dialog::init())
+    .plugin(tauri_plugin_log::Builder::default().build())
+    .invoke_handler(tauri::generate_handler![file_handler])
+    .run(tauri::generate_context!())
+    .expect("error while running QuickLook application");
 
-    // Trigger `application:openURLs:`
-    read_file_association();
+  // Trigger `application:openURLs:`
+  read_file_association();
 }
