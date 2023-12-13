@@ -6,6 +6,7 @@
 import React, { ReactElement } from 'react'
 import { observer } from 'mobx-react-lite'
 import Utils from '@utils/utils'
+import Image from './image'
 
 interface ILookProps {
   fileName: string
@@ -44,11 +45,7 @@ const Look: React.FC<ILookProps> = (props: ILookProps): ReactElement => {
     // image
     let suffixProps: { [K: string]: any } = props.suffixProps || {}
     if (suffixProps.type === 'image') {
-      return (
-        <div className="image-wrapper flex-center wh100">
-          <img src={props.content || ''} />
-        </div>
-      )
+      return <Image content={props.content || ''} />
     }
 
     if (suffix === 'plist') {

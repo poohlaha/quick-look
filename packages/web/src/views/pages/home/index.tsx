@@ -93,12 +93,12 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
 
     if (homeStore.suffixProps.type === 'preview') {
       return (
-          <Preview
-              fileName={homeStore.fileName || ''}
-              content={homeStore.content || []}
-              loading={homeStore.loading}
-              suffixProps={homeStore.suffixProps || []}
-          />
+        <Preview
+          fileName={homeStore.fileName || ''}
+          content={homeStore.content || []}
+          loading={homeStore.loading}
+          suffixProps={homeStore.suffixProps || []}
+        />
       )
     }
 
@@ -136,7 +136,11 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
           </div>
         )}
 
-        <div className={`flex-1 ${empty ? 'is-empty' : ''} ${homeStore.suffixProps.type === 'preview' ? '' : 'wrapper overflow-auto '}`}>
+        <div
+          className={`flex-1 ${empty ? 'is-empty' : ''} ${
+            homeStore.suffixProps.type === 'preview' ? '' : 'wrapper overflow-auto '
+          }`}
+        >
           {empty ? getEmptyHtml() : getLookHtml()}
         </div>
 
