@@ -8,6 +8,7 @@
 
   .file-content {
     height: 44px;
+    min-height: 44px;
     box-shadow: 0 2px 8px 0 rgba(55, 0, 120, .05);
     padding: 0 24px;
 
@@ -168,56 +169,75 @@
       transition: transform 0.3s cubic-bezier(0.215, 0.61, 0.355, 1);
     }
 
-    .actions-box {
-      position: fixed;
-      left: 0;
-      width: 100%;
-      bottom: 20px;
+    .operation:first-child {
+      svg {
+        transform: rotate(90deg);
+      }
+    }
+  }
+}
 
-      .actions {
-        padding: 0 24px;
-        background: rgba(0, 0, 0, 0.3);
-        border-radius: 100px;
+.image-wrapper, .preview {
+  .actions-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: fixed;
+    left: 0;
+    width: 100%;
+    bottom: 20px;
 
-        .operation {
-          padding: 12px;
-          cursor: pointer;
-          user-select: none;
-          transition: all 0.3s;
+    .actions {
+      padding: 8px 16px;
+      background: #ffffff;
+      box-shadow: 0 0 20px 0 rgba(0, 0, 0, 0.1);
+      border-radius: 24px;
+      display: flex;
+      align-items: center;
 
-          &.disabled {
-            cursor: not-allowed;
-            .action {
-              color: rgba(255, 255, 255, 0.25);
-            }
-          }
+      .operation {
+        width: 32px;
+        height: 32px;
+        cursor: pointer;
+        user-select: none;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
-          &:not(.disabled):hover {
-            .action {
-              color: #ffffff;
-            }
-          }
+        &:not(:last-child) {
+          margin-right: 8px;
+        }
 
+        &.disabled {
+          cursor: not-allowed;
           .action {
-            font-size: @font_larger;
-            color: rgba(255, 255, 255, 0.65);
-
-            svg {
-              width: 18px;
-              height: 18px;
-            }
+            color: rgba(0, 0, 0, 0.66);
+            opacity: 0.8;
           }
         }
 
-        .operation:first-of-type {
-          margin-inline-start: 0;
+        &:not(.disabled):hover {
+          background: rgba(0,0,0,.06);
+          border-radius: 16px;
         }
 
-        .operation:first-child {
+        .action {
+          font-size: @font_larger;
+          color: rgba(0, 0, 0, 0.88);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
           svg {
-            transform: rotate(90deg);
+            width: 18px;
+            height: 18px;
           }
         }
+      }
+
+      .operation:first-of-type {
+        margin-inline-start: 0;
       }
     }
   }

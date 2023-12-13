@@ -29,8 +29,8 @@ const Image: React.FC<IImageProps> = (props: IImageProps): ReactElement => {
     if (!needActions) return null
 
     return (
-      <div className="actions-box flex-center">
-        <div className="actions flex-align-center">
+      <div className="actions-box">
+        <div className="actions">
           {/* 上下翻转 */}
           <div
             className="operation flipY"
@@ -39,7 +39,14 @@ const Image: React.FC<IImageProps> = (props: IImageProps): ReactElement => {
             }}
           >
             <span className="action">
-              <svg viewBox="64 64 896 896" focusable="false" data-icon="swap" fill="currentColor" aria-hidden="true">
+              <svg
+                className="svg-icon"
+                viewBox="64 64 896 896"
+                focusable="false"
+                data-icon="swap"
+                fill="currentColor"
+                aria-hidden="true"
+              >
                 <path d="M847.9 592H152c-4.4 0-8 3.6-8 8v60c0 4.4 3.6 8 8 8h605.2L612.9 851c-4.1 5.2-.4 13 6.3 13h72.5c4.9 0 9.5-2.2 12.6-6.1l168.8-214.1c16.5-21 1.6-51.8-25.2-51.8zM872 356H266.8l144.3-183c4.1-5.2.4-13-6.3-13h-72.5c-4.9 0-9.5 2.2-12.6 6.1L150.9 380.2c-16.5 21-1.6 51.8 25.1 51.8h696c4.4 0 8-3.6 8-8v-60c0-4.4-3.6-8-8-8z"></path>
               </svg>
             </span>
@@ -53,7 +60,14 @@ const Image: React.FC<IImageProps> = (props: IImageProps): ReactElement => {
             }}
           >
             <span className="action">
-              <svg viewBox="64 64 896 896" focusable="false" data-icon="swap" fill="currentColor" aria-hidden="true">
+              <svg
+                className="svg-icon"
+                viewBox="64 64 896 896"
+                focusable="false"
+                data-icon="swap"
+                fill="currentColor"
+                aria-hidden="true"
+              >
                 <path d="M847.9 592H152c-4.4 0-8 3.6-8 8v60c0 4.4 3.6 8 8 8h605.2L612.9 851c-4.1 5.2-.4 13 6.3 13h72.5c4.9 0 9.5-2.2 12.6-6.1l168.8-214.1c16.5-21 1.6-51.8-25.2-51.8zM872 356H266.8l144.3-183c4.1-5.2.4-13-6.3-13h-72.5c-4.9 0-9.5 2.2-12.6 6.1L150.9 380.2c-16.5 21-1.6 51.8 25.1 51.8h696c4.4 0 8-3.6 8-8v-60c0-4.4-3.6-8-8-8z"></path>
               </svg>
             </span>
@@ -68,6 +82,7 @@ const Image: React.FC<IImageProps> = (props: IImageProps): ReactElement => {
           >
             <span className="action">
               <svg
+                className="svg-icon"
                 viewBox="64 64 896 896"
                 focusable="false"
                 data-icon="rotate-left"
@@ -92,6 +107,7 @@ const Image: React.FC<IImageProps> = (props: IImageProps): ReactElement => {
           >
             <span className="action">
               <svg
+                className="svg-icon"
                 viewBox="64 64 896 896"
                 focusable="false"
                 data-icon="rotate-right"
@@ -135,6 +151,7 @@ const Image: React.FC<IImageProps> = (props: IImageProps): ReactElement => {
           >
             <span className="action">
               <svg
+                className="svg-icon"
                 viewBox="64 64 896 896"
                 focusable="false"
                 data-icon="zoom-out"
@@ -170,7 +187,14 @@ const Image: React.FC<IImageProps> = (props: IImageProps): ReactElement => {
             }}
           >
             <span className="action">
-              <svg viewBox="64 64 896 896" focusable="false" data-icon="zoom-in" fill="currentColor" aria-hidden="true">
+              <svg
+                className="svg-icon"
+                viewBox="64 64 896 896"
+                focusable="false"
+                data-icon="zoom-in"
+                fill="currentColor"
+                aria-hidden="true"
+              >
                 <path d="M637 443H519V309c0-4.4-3.6-8-8-8h-60c-4.4 0-8 3.6-8 8v134H325c-4.4 0-8 3.6-8 8v60c0 4.4 3.6 8 8 8h118v134c0 4.4 3.6 8 8 8h60c4.4 0 8-3.6 8-8V519h118c4.4 0 8-3.6 8-8v-60c0-4.4-3.6-8-8-8zm284 424L775 721c122.1-148.9 113.6-369.5-26-509-148-148.1-388.4-148.1-537 0-148.1 148.6-148.1 389 0 537 139.5 139.6 360.1 148.1 509 26l146 146c3.2 2.8 8.3 2.8 11 0l43-43c2.8-2.7 2.8-7.8 0-11zM696 696c-118.8 118.7-311.2 118.7-430 0-118.7-118.8-118.7-311.2 0-430 118.8-118.7 311.2-118.7 430 0 118.7 118.8 118.7 311.2 0 430z"></path>
               </svg>
             </span>

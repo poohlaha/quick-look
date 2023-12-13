@@ -19,6 +19,7 @@ class HomeStore extends BaseStore {
   @observable detailContent = {
     data: '',
     fileName: '',
+    suffixProps: {},
   }
 
   @observable detailLoading: boolean = false
@@ -36,6 +37,7 @@ class HomeStore extends BaseStore {
       this.detailContent = {
         data: '',
         fileName: '',
+        suffixProps: {},
       }
 
       this.detailLoading = true
@@ -46,16 +48,20 @@ class HomeStore extends BaseStore {
         { filePath: path },
         { headers: { fileName: encodeURIComponent(this.detailContent.fileName) } }
       )
+
+      console.log('detail result:', result)
       this.detailLoading = false
 
+      /*
       if (Utils.isBlank(result.body || '')) {
         TOAST.show({ message: '当前文件不支持查看 !', type: 3 })
         return
       }
+       */
 
-      this.suffixProps = result.suffixProps || []
-      await info(`readDetailFile suffixProps: ${JSON.stringify(this.suffixProps)}`)
-      console.log('readDetailFile suffixProps:', this.suffixProps)
+      this.detailContent.suffixProps = result.suffixProps || {}
+      await info(`readDetailFile suffixProps: ${JSON.stringify(this.detailContent.suffixProps)}`)
+      console.log('readDetailFile suffixProps:', this.detailContent.suffixProps)
 
       this.detailContent.data = this.analysisResult(result, `读取文件 ${name || ''} 失败!`)
       callback?.()
@@ -64,6 +70,7 @@ class HomeStore extends BaseStore {
       this.detailContent = {
         data: '',
         fileName: '',
+        suffixProps: '',
       }
       console.error('read file error !', err)
       TOAST.show({ message: `读取文件 ${name || ''} 失败!`, type: 4 })

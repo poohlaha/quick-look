@@ -194,7 +194,7 @@ const Archive: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
                 fileName={homeStore.detailContent?.fileName || ''}
                 content={homeStore.detailContent?.data || ''}
                 loading={homeStore.loading}
-                suffixProps={homeStore.suffixProps || {}}
+                suffixProps={homeStore.detailContent.suffixProps || {}}
               />
             )}
           </Drawer>

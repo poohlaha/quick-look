@@ -137,7 +137,7 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
         )}
 
         <div
-          className={`flex-1 ${empty ? 'is-empty' : ''} ${
+          className={`flex-1 wh100 ${empty ? 'is-empty' : ''} ${
             homeStore.suffixProps.type === 'preview' ? '' : 'wrapper overflow-auto '
           }`}
         >
