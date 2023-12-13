@@ -7,7 +7,7 @@ use crate::analysis::{FileProps, HttpResponse, SuffixProps};
 use crate::error::Error;
 use crate::file::archive::Archive;
 use base64::Engine;
-use chrono::TimeZone;
+use chrono::{Duration, TimeZone};
 use log::{error, info};
 use serde_json::{Map, Value};
 use std::fs;
@@ -56,11 +56,57 @@ impl FileHandler {
     return path.join(Path::new("QuickLook"));
   }
 
+  /// 清空上一天的目录
+  fn clear_yesterdays_dirs(file_path: &PathBuf) -> Result<(), String> {
+    let now = chrono::Local::now();
+    let yesterday = now - Duration::days(1);
+    let yesterday_start = yesterday.date_naive().and_hms_opt(0, 0, 0).unwrap().timestamp();
+    let yesterday_end = yesterday.date_naive().and_hms_opt(23, 59, 59).unwrap().timestamp();
+
+    let entries = fs::read_dir(file_path).map_err(|err| {
+      let err_msg = Error::Error(err.to_string()).to_string();
+      error!("{},{},{}", file!(), line!(), err_msg);
+      return err_msg;
+    })?;
+
+    for entry in entries {
+      if let Ok(entry) = entry {
+        let path = entry.path();
+
+        let metadata = path.metadata().map_err(|err| {
+          let err_msg = Error::Error(err.to_string()).to_string();
+          error!("{},{},{}", file!(), line!(), err_msg);
+          return err_msg;
+        })?;
+
+        let modified_time = metadata.modified().map_err(|err| {
+          let err_msg = Error::Error(err.to_string()).to_string();
+          error!("{},{},{}", file!(), line!(), err_msg);
+          return err_msg;
+        })?;
+
+        let modified_time = chrono::DateTime::<chrono::Local>::from(modified_time).timestamp();
+        if modified_time >= yesterday_start && modified_time <= yesterday_end {
+          fs::remove_dir_all(path).map_err(|err| {
+            let err_msg = Error::Error(err.to_string()).to_string();
+            error!("{},{},{}", file!(), line!(), err_msg);
+            return err_msg;
+          })?;
+        }
+      }
+    }
+
+    Ok(())
+  }
+
   /// 创建临时目录
   pub fn create_temp_dir(name: &str) -> Result<PathBuf, String> {
     // 获取路径(数据目录或home)
     let exec_path = FileHandler::get_program_dir();
     info!("uncompress path: {:#?}", exec_path);
+
+    // 清空上一天的目录
+    Self::clear_yesterdays_dirs(&exec_path)?;
 
     let unzip_path = exec_path.join(Path::new(&name));
     if unzip_path.exists() {
