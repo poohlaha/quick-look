@@ -1,31 +1,28 @@
 //! 文件操作
 
-mod archive;
-mod preview;
-
 use crate::analysis::{FileProps, HttpResponse, SuffixProps};
 use crate::error::Error;
-use crate::file::archive::Archive;
-use base64::Engine;
-use chrono::{Duration, TimeZone};
-use log::{error, info};
+use chrono::{TimeZone};
+use log::{info};
 use serde_json::{Map, Value};
 use std::fs;
-use std::fs::{File, Metadata};
-use std::io::{BufReader, Read};
+use std::fs::{Metadata};
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
-use std::path::{Path, PathBuf};
+use std::path::{Path};
 use std::time::SystemTime;
 use tauri::http::HeaderMap;
 use tauri::ipc::{InvokeBody, Request};
-use crate::file::preview::Preview;
+use crate::preview::Preview;
+use crate::archive::Archive;
+use crate::utils::file::FileUtils;
+use crate::utils::Utils;
 
 /// 图片后缀
-const IMAGE_SUFFIXES: [&str; 11] = [
+pub const IMAGE_SUFFIXES: [&str; 11] = [
   "jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "svg", "bmp",
 ];
 
-const OTHER_SUFFIX: [&str; 7] = [
+pub const OTHER_SUFFIX: [&str; 7] = [
   "pdf",
   "xls",
   "xlsx",
@@ -36,95 +33,15 @@ const OTHER_SUFFIX: [&str; 7] = [
 ];
 
 /// 压缩包后缀
-const ARCHIVE_SUFFIXES: [&str; 9] = [
+pub const ARCHIVE_SUFFIXES: [&str; 9] = [
   "zip", "bz2", "gz", "zlib", "tar", "rar", "7z", "tar.xz", "xz",
 ];
 
-pub struct FileHandler;
+pub const PREVIEW_FILE: &str = "preview.json";
 
-impl FileHandler {
-  /// 获取解压目录
-  pub fn get_program_dir() -> PathBuf {
-    let path;
-    let data_dir = dirs::data_dir();
-    if data_dir.is_none() {
-      path = dirs::home_dir().unwrap();
-    } else {
-      path = data_dir.unwrap()
-    }
+pub struct Process;
 
-    return path.join(Path::new("QuickLook"));
-  }
-
-  /// 清空上一天的目录
-  fn clear_yesterdays_dirs(file_path: &PathBuf) -> Result<(), String> {
-    let now = chrono::Local::now();
-    let yesterday = now - Duration::days(1);
-    let yesterday_start = yesterday.date_naive().and_hms_opt(0, 0, 0).unwrap().timestamp();
-    let yesterday_end = yesterday.date_naive().and_hms_opt(23, 59, 59).unwrap().timestamp();
-
-    let entries = fs::read_dir(file_path).map_err(|err| {
-      let err_msg = Error::Error(err.to_string()).to_string();
-      error!("{},{},{}", file!(), line!(), err_msg);
-      return err_msg;
-    })?;
-
-    for entry in entries {
-      if let Ok(entry) = entry {
-        let path = entry.path();
-
-        let metadata = path.metadata().map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
-
-        let modified_time = metadata.modified().map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
-
-        let modified_time = chrono::DateTime::<chrono::Local>::from(modified_time).timestamp();
-        if modified_time >= yesterday_start && modified_time <= yesterday_end {
-          fs::remove_dir_all(path).map_err(|err| {
-            let err_msg = Error::Error(err.to_string()).to_string();
-            error!("{},{},{}", file!(), line!(), err_msg);
-            return err_msg;
-          })?;
-        }
-      }
-    }
-
-    Ok(())
-  }
-
-  /// 创建临时目录
-  pub fn create_temp_dir(name: &str) -> Result<PathBuf, String> {
-    // 获取路径(数据目录或home)
-    let exec_path = FileHandler::get_program_dir();
-    info!("uncompress path: {:#?}", exec_path);
-
-    // 清空上一天的目录
-    Self::clear_yesterdays_dirs(&exec_path)?;
-
-    let unzip_path = exec_path.join(Path::new(&name));
-    if unzip_path.exists() {
-      fs::remove_dir_all(unzip_path.clone()).map_err(|err| {
-        let err_msg = Error::Error(err.to_string()).to_string();
-        error!("{},{},{}", file!(), line!(), err_msg);
-        return err_msg;
-      })?;
-    }
-
-    fs::create_dir_all(&unzip_path).map_err(|err| {
-      let err_msg = Error::Error(err.to_string()).to_string();
-      error!("{},{},{}", file!(), line!(), err_msg);
-      return err_msg;
-    })?;
-
-    Ok(unzip_path)
-  }
+impl Process {
 
   /// 通过文件流读取文件
   pub fn exec(request: Request) -> Result<HttpResponse, String> {
@@ -135,7 +52,7 @@ impl FileHandler {
     let file_name = Self::get_filename(request.headers())?;
 
     // file suffix
-    let file_suffix = Self::get_file_suffix(&file_name);
+    let file_suffix = FileUtils::get_file_suffix(&file_name);
     response.file_props.name = file_name.clone();
     response.file_props.suffix = file_suffix.clone();
 
@@ -158,21 +75,13 @@ impl FileHandler {
     return Ok(response);
   }
 
-  /// 生成 base64 图片
-  fn generate_image(data: Vec<u8>) -> String {
-    let str = base64::engine::general_purpose::STANDARD.encode::<Vec<u8>>(data);
-    let mut content = String::from("data:image/png;base64,");
-    content.push_str(&str);
-    return content;
-  }
-
   /// 处理二进制数据
   fn prepare_blob(data: &Vec<u8>, mut response: HttpResponse) -> Result<HttpResponse, String> {
     let suffix = response.file_props.suffix.clone();
     let suffix = suffix.as_str();
     // image suffix
     if IMAGE_SUFFIXES.contains(&suffix) {
-      let content = Self::generate_image(data.clone());
+      let content = Utils::generate_image(data.clone());
       response.code = 200;
       response.body = content;
       response.suffix_props = SuffixProps {
@@ -200,7 +109,6 @@ impl FileHandler {
     };
     info!("success");
     return Ok(response);
-
   }
 
   /// 读取 json 数据
@@ -230,41 +138,64 @@ impl FileHandler {
 
     // archive suffix
     if ARCHIVE_SUFFIXES.contains(&suffix.as_str()) {
-      let reader = Self::read_file_buffer(file_path)?;
+      let reader = FileUtils::read_file_buffer(file_path)?;
       return Archive::exec(reader, response);
     }
 
-    let content = Self::read_file(file_path)?;
+
+    if OTHER_SUFFIX.contains(&suffix.as_str()) {
+      return Self::compare_file(file_path, response);
+    }
+
+    let content = FileUtils::read_file(file_path)?;
     Self::prepare_blob(&content, response)
   }
 
-  /// 读取文件
-  fn read_file(file_path: &str) -> Result<Vec<u8>, String> {
-    let mut file = File::open(&file_path).map_err(|err| {
-      let err_msg = Error::Error(err.to_string()).to_string();
-      error!("{},{},{}", file!(), line!(), err_msg);
-      return err_msg;
-    })?;
+  /// 比较临时文件是不是和文件一致
+  fn compare_file(file_path: &str, response: HttpResponse) -> Result<HttpResponse, String> {
+    let name = &response.file_props.name;
+    let temp_dir = FileUtils::create_temp_dir(&response.file_props.prefix, false)?;
 
-    let mut contents: Vec<u8> = Vec::new();
-    file.read_to_end(&mut contents).map_err(|err| {
-      let err_msg = Error::Error(err.to_string()).to_string();
-      error!("{},{},{}", file!(), line!(), err_msg);
-      return err_msg;
-    })?;
+    let temp_file_path = temp_dir.join(name);
+    let temp_file_str = temp_file_path.as_path().to_string_lossy().to_string();
+    if temp_file_path.is_dir() || !temp_file_path.exists() {
+      let content = FileUtils::read_file(file_path)?;
+      return Self::prepare_blob(&content, response)
+    }
 
-    Ok(contents)
-  }
+    info!("convert `{}` hash ...", &response.file_props.name);
+    let hash = FileUtils::get_file_hash(file_path)?;
+    let temp_hash = FileUtils::get_file_hash(&temp_file_str)?;
+    if hash.is_empty() || temp_hash.is_empty()  {
+      let content = FileUtils::read_file(file_path)?;
+      return Self::prepare_blob(&content, response)
+    }
 
-  /// 读取文件流
-  fn read_file_buffer(file_path: &str) -> Result<BufReader<File>, String> {
-    let file = File::open(&file_path).map_err(|err| {
-      let err_msg = Error::Error(err.to_string()).to_string();
-      error!("{},{},{}", file!(), line!(), err_msg);
-      return err_msg;
-    })?;
+    if hash != temp_hash {
+      let content = FileUtils::read_file(file_path)?;
+      return Self::prepare_blob(&content, response)
+    }
 
-    Ok(BufReader::new(file))
+    info!("`{}` hash is same ...", &response.file_props.name);
+    // 相等则直接读取原来文件
+    let json_file_path = temp_dir.clone().join(PREVIEW_FILE);
+    let json_file_str = json_file_path.as_path().to_string_lossy().to_string();
+    if !json_file_path.exists() {
+      let content = FileUtils::read_file(file_path)?;
+      return Self::prepare_blob(&content, response)
+    }
+
+    info!("read `{}` in path `{}`", PREVIEW_FILE, &json_file_str);
+    let content = FileUtils::read_file_string(&json_file_str)?;
+    if content.is_empty() {
+      info!("`{}` content is empty !", PREVIEW_FILE);
+      let content = FileUtils::read_file(file_path)?;
+      return Self::prepare_blob(&content, response)
+    }
+
+    info!("convert `{}` to response !", PREVIEW_FILE);
+    let response = serde_json::from_str(&content).map_err(|err| Error::Error(err.to_string()).to_string())?;
+    Ok(response)
   }
 
   /// 从 `headers` 头中获取文件名, 中文名是 encode 的, 需要 decode
@@ -278,49 +209,28 @@ impl FileHandler {
 
     let mut file_name = String::new();
     if let Some(filename) = filename {
-      let name = filename.to_str().map_err(|err| {
-        let err_msg = Error::Error(err.to_string()).to_string();
-        error!("{},{},{}", file!(), line!(), err_msg);
-        return err_msg;
-      })?;
+      let name = filename.to_str().map_err(|err| Error::Error(err.to_string()).to_string())?;
       file_name = name.to_string();
     }
 
     // decode filename
-    let file_name = urlencoding::decode(&file_name).map_err(|err| {
-      let err_msg = Error::Error(err.to_string()).to_string();
-      error!("{},{},{}", file!(), line!(), err_msg);
-      return err_msg;
-    })?;
+    let file_name = urlencoding::decode(&file_name).map_err(|err| Error::Error(err.to_string()).to_string())?;
     let file_name = file_name.to_string();
     info!("filename decode: {:#?}", &file_name);
     return Ok(file_name);
   }
 
-  /// 获取文件后缀
-  fn get_file_suffix(file_name: &str) -> String {
-    let names: Vec<&str> = file_name.split(".").collect();
-    let mut file_suffix = String::new();
-    if let Some(suffix) = names.last() {
-      file_suffix = suffix.to_string()
-    }
-
-    return file_suffix;
-  }
 
   /// 获取文件属性
   pub(crate) fn get_file_props(file_path: &str) -> Result<FileProps, String> {
-    let metadata: Metadata = fs::metadata(file_path).map_err(|err| {
-      let err_msg = Error::Error(err.to_string()).to_string();
-      error!("{},{},{}", file!(), line!(), err_msg);
-      return err_msg;
-    })?;
+    info!("get file `{}` props", file_path);
 
+    let metadata: Metadata = fs::metadata(file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
     let mut file_props = FileProps::default();
     file_props.path = file_path.to_string();
 
     // 获取文件大小
-    let size = Self::convert_size(metadata.size());
+    let size = FileUtils::convert_size(metadata.size());
     file_props.size = size;
     file_props.old_size = metadata.size();
 
@@ -341,7 +251,7 @@ impl FileHandler {
 
     // 获取文件或目录的权限信息
     let mode = metadata.permissions().mode();
-    file_props.permissions = Self::format_permissions(mode);
+    file_props.permissions = FileUtils::format_permissions(mode);
 
     // 判断文件是不是可以执行(此处有问题?)
     /*
@@ -356,46 +266,16 @@ impl FileHandler {
     Ok(file_props)
   }
 
-  fn format_permissions(mode: u32) -> String {
-    let user = Self::format_mode_part((mode >> 6) & 0o7);
-    let group = Self::format_mode_part((mode >> 3) & 0o7);
-    let others = Self::format_mode_part(mode & 0o7);
-    format!("{}{}{}", user, group, others)
-  }
-
-  fn format_mode_part(part: u32) -> String {
-    let r = if (part & 0o4) == 0 { "-" } else { "r" };
-    let w = if (part & 0o2) == 0 { "-" } else { "w" };
-    let x = if (part & 0o1) == 0 { "-" } else { "x" };
-    format!("{}{}{}", r, w, x)
-  }
-
-  /// 转换文件大小
-  pub(crate) fn convert_size(size: u64) -> String {
-    if size >= 1024 * 1024 * 1024 {
-      format!("{:.2} GB", size as f64 / (1024.0 * 1024.0 * 1024.0))
-    } else if size >= 1024 * 1024 {
-      format!("{:.2} MB", size as f64 / (1024.0 * 1024.0))
-    } else if size >= 1024 {
-      format!("{:.2} KB", size as f64 / 1024.0)
-    } else {
-      format!("{} bytes", size)
-    }
-  }
-
   /// 读取文件夹下的所有文件
-  pub(crate) fn read_files(
+  pub fn read_files(
     path: &Path,
     unzip_path_str: &str,
     size: &mut u64,
     files: &mut Vec<FileProps>,
   ) -> Result<(), String> {
-    let entries = fs::read_dir(path).map_err(|err| {
-      let err_msg = Error::Error(err.to_string()).to_string();
-      error!("{},{},{}", file!(), line!(), err_msg);
-      return err_msg;
-    })?;
+    info!("read path `{}` files", path.to_string_lossy().to_string());
 
+    let entries = fs::read_dir(path).map_err(|err| Error::Error(err.to_string()).to_string())?;
     for entry in entries {
       let entry = entry.unwrap();
       let path = entry.path();
@@ -408,7 +288,7 @@ impl FileHandler {
       let suffix = if path.is_dir() {
         String::new()
       } else {
-        FileHandler::get_file_suffix(&filename).to_uppercase()
+        FileUtils::get_file_suffix(&filename).to_uppercase()
       };
 
       files.push(FileProps {

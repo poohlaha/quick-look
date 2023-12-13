@@ -1,22 +1,22 @@
 use crate::error::Error;
-use crate::file::FileHandler;
-use log::{error, info};
+use log::{info};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::path::Path;
 use tauri::ipc::Request;
+use crate::process::Process;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct SuffixProps {
-  pub(crate) name: String,
+  pub name: String,
   #[serde(rename = "type")]
-  pub(crate) _type: String,
-  pub(crate) list: Vec<String>,
+  pub _type: String,
+  pub list: Vec<String>,
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
-pub(crate) struct FileProps {
+pub struct FileProps {
   pub key: String,
   pub name: String,
   pub suffix: String,
@@ -62,7 +62,7 @@ pub fn read_file_association() {
 /// 通过文件流或文件路径读取文件
 #[tauri::command]
 pub fn file_handler(request: Request) -> Result<HttpResponse, String> {
-  FileHandler::exec(request)
+  Process::exec(request)
 }
 
 /// 解压压缩包
@@ -95,18 +95,13 @@ pub fn unarchive(file_path: &str, full_path: &str) -> Result<HttpResponse, Strin
   }
 
   // 拷贝目录
+  info!("unarchive copy files ...");
   let mut copy_options = fs_extra::dir::CopyOptions::new();
   copy_options.overwrite = true;
-
   let download_path = download_path.to_string_lossy().to_string();
-
-  fs_extra::copy_items(&[full_path], &download_path, &copy_options).map_err(|err| {
-    let err_msg = Error::Error(err.to_string()).to_string();
-    error!("{},{},{}", file!(), line!(), err_msg);
-    return err_msg;
-  })?;
+  fs_extra::copy_items(&[full_path], &download_path, &copy_options).map_err(|err| Error::Error(err.to_string()).to_string())?;
 
   response.code = 200;
-  info!("success");
+  info!("unarchive success!");
   Ok(response)
 }

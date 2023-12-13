@@ -3,7 +3,10 @@
 
 mod analysis;
 mod error;
-mod file;
+mod process;
+mod utils;
+mod archive;
+mod preview;
 
 use analysis::{file_handler, read_file_association, unarchive};
 

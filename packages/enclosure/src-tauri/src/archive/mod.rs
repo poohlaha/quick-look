@@ -2,16 +2,17 @@
 
 use crate::analysis::{FileProps, HttpResponse, SuffixProps};
 use crate::error::Error;
-use crate::file::{FileHandler, ARCHIVE_SUFFIXES};
 use bzip2::read::{BzDecoder, BzEncoder};
 use bzip2::Compression;
 use flate2::read::GzDecoder;
-use log::{error, info};
+use log::{info};
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::{io};
 use xz2::read::XzEncoder;
+use crate::process::{ARCHIVE_SUFFIXES, Process};
+use crate::utils::file::FileUtils;
 
 pub struct Archive;
 
@@ -44,7 +45,7 @@ impl Archive {
     let xz = ARCHIVE_SUFFIXES.get(8).unwrap();
 
     let name = &response.file_props.name;
-    let temp_path = FileHandler::create_temp_dir(&response.file_props.prefix)?;
+    let temp_path = FileUtils::create_temp_dir(&response.file_props.prefix, true)?;
     if &suffix == zip {
       return Self::prepare_zip(reader, &temp_path, response);
     }
@@ -96,7 +97,7 @@ impl Archive {
     let mut size: u64 = 0;
 
     let unzip_dir_str = unzip_path.as_path().to_string_lossy().to_string();
-    FileHandler::read_files(unzip_path.as_path(), &unzip_dir_str, &mut size, &mut files)?;
+    Process::read_files(unzip_path.as_path(), &unzip_dir_str, &mut size, &mut files)?;
 
     // 按目录归纳文件
     let props = Self::organize_files(files);
@@ -125,7 +126,7 @@ impl Archive {
     response.code = 200;
     response.file_props.kind = kind;
     response.file_props.packed = response.file_props.size;
-    response.file_props.size = FileHandler::convert_size(size);
+    response.file_props.size = FileUtils::convert_size(size);
     response.file_props.files = files;
     response.file_props.full_path = unzip_dir_str;
     response.suffix_props = SuffixProps {
@@ -143,29 +144,21 @@ impl Archive {
     exec_path: &PathBuf,
     response: HttpResponse,
   ) -> Result<HttpResponse, String> {
+    info!("prepare zip ...");
+
     let res = Self::decompress(
       "ZIP Archive".to_string(),
       reader,
       exec_path,
       response,
       |reader, unzip_path, _| {
-        let mut archive = zip::ZipArchive::new(reader).map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
-
-        archive.extract(unzip_path).map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
-
+        let mut archive = zip::ZipArchive::new(reader).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        archive.extract(unzip_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         Ok(())
       },
     )?;
 
-    info!("success");
+    info!("prepare zip success !");
     Ok(res)
   }
 
@@ -175,6 +168,7 @@ impl Archive {
     exec_path: &PathBuf,
     response: HttpResponse,
   ) -> Result<HttpResponse, String> {
+    info!("prepare bz2 ...");
     let res = Self::decompress(
       "BZ2 Archive".to_string(),
       reader,
@@ -186,35 +180,20 @@ impl Archive {
 
         // 读取解压缩的数据
         let mut buffer = Vec::new();
-        decompressor.read_to_end(&mut buffer).map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
+        decompressor.read_to_end(&mut buffer).map_err(|err| Error::Error(err.to_string()).to_string())?;
 
         let bz2 = ARCHIVE_SUFFIXES.get(1).unwrap();
         let mut name = response.file_props.name.clone();
         name = name.replace(&format!(".{}", bz2), "");
 
         let file_path = unzip_path.join(&name);
-
-        let mut output_file = File::create(file_path).map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
-
-        output_file.write_all(&buffer).map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
-
+        let mut output_file = File::create(file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        output_file.write_all(&buffer).map_err(|err| Error::Error(err.to_string()).to_string())?;
         Ok(())
       },
     )?;
 
-    info!("success");
+    info!("prepare bz2 success !");
     Ok(res)
   }
 
@@ -224,6 +203,8 @@ impl Archive {
     exec_path: &PathBuf,
     response: HttpResponse,
   ) -> Result<HttpResponse, String> {
+    info!("prepare tar ...");
+
     let res = Self::decompress(
       "TAR Archive".to_string(),
       reader,
@@ -232,16 +213,12 @@ impl Archive {
       |reader, unzip_path, _| {
         let gz_decoder = GzDecoder::new(reader);
         let mut file_archive = tar::Archive::new(gz_decoder);
-        file_archive.unpack(unzip_path).map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
+        file_archive.unpack(unzip_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         Ok(())
       },
     )?;
 
-    info!("success");
+    info!("prepare tar success!");
     Ok(res)
   }
 
@@ -251,6 +228,8 @@ impl Archive {
     exec_path: &PathBuf,
     response: HttpResponse,
   ) -> Result<HttpResponse, String> {
+    info!("prepare rar ...");
+
     let res = Self::decompress(
       "Rar Archive".to_string(),
       reader,
@@ -259,24 +238,13 @@ impl Archive {
       |_, unzip_path, response| {
         let file_path = response.file_props.path.clone();
         let mut archive = unrar::Archive::new(file_path)
-          .extract_to(unzip_path.to_string_lossy().to_string())
-          .map_err(|err| {
-            let err_msg = Error::Error(err.to_string()).to_string();
-            error!("{},{},{}", file!(), line!(), err_msg);
-            return err_msg;
-          })?;
-
-        archive.process().map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
-
+          .extract_to(unzip_path.to_string_lossy().to_string()).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        archive.process().map_err(|err| Error::Error(err.to_string()).to_string())?;
         Ok(())
       },
     )?;
 
-    info!("success");
+    info!("prepare rar success !");
     Ok(res)
   }
 
@@ -286,6 +254,7 @@ impl Archive {
     exec_path: &PathBuf,
     response: HttpResponse,
   ) -> Result<HttpResponse, String> {
+    info!("prepare tar.xz ...");
     let res = Self::decompress(
       "XZ Archive".to_string(),
       reader,
@@ -294,17 +263,12 @@ impl Archive {
       |reader, _, _| {
         let decoder = XzEncoder::new(reader, 9);
         let mut archive = tar::Archive::new(decoder);
-        archive.unpack(exec_path).map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
-
+        archive.unpack(exec_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         Ok(())
       },
     )?;
 
-    info!("success");
+    info!("prepare tar.xz success !");
     Ok(res)
   }
 
@@ -314,6 +278,7 @@ impl Archive {
     exec_path: &PathBuf,
     response: HttpResponse,
   ) -> Result<HttpResponse, String> {
+    info!("prepare xz ...");
     let res = Self::decompress(
       "XZ Archive".to_string(),
       reader,
@@ -323,25 +288,14 @@ impl Archive {
         let name = &response.file_props.prefix;
         let file_path = unzip_path.join(name);
 
-        let mut output_file = File::create(&file_path).map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
-
+        let mut output_file = File::create(&file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         let mut decoder = XzEncoder::new(reader, 9);
-
-        io::copy(&mut decoder, &mut output_file).map_err(|err| {
-          let err_msg = Error::Error(err.to_string()).to_string();
-          error!("{},{},{}", file!(), line!(), err_msg);
-          return err_msg;
-        })?;
-
+        io::copy(&mut decoder, &mut output_file).map_err(|err| Error::Error(err.to_string()).to_string())?;
         Ok(())
       },
     )?;
 
-    info!("success");
+    info!("prepare xz success !");
     Ok(res)
   }
 
@@ -351,25 +305,19 @@ impl Archive {
     exec_path: &PathBuf,
     response: HttpResponse,
   ) -> Result<HttpResponse, String> {
+    info!("prepare 7z ...");
     let res = Self::decompress(
       "7Z Archive".to_string(),
       reader,
       exec_path,
       response,
       |_, unzip_path, response| {
-        sevenz_rust::decompress_file(&Path::new(&response.file_props.path), unzip_path).map_err(
-          |err| {
-            let err_msg = Error::Error(err.to_string()).to_string();
-            error!("{},{},{}", file!(), line!(), err_msg);
-            return err_msg;
-          },
-        )?;
-
+        sevenz_rust::decompress_file(&Path::new(&response.file_props.path), unzip_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         Ok(())
       },
     )?;
 
-    info!("success");
+    info!("prepare 7z success !");
     Ok(res)
   }
 
@@ -401,9 +349,9 @@ impl Archive {
           new_dir.suffix = if props.is_directory {
             String::new()
           } else {
-            FileHandler::get_file_suffix(&name)
+            FileUtils::get_file_suffix(&name)
           };
-          new_dir.kind = FileHandler::get_file_suffix(&name);
+          new_dir.kind = FileUtils::get_file_suffix(&name);
 
           current_dir.files.push(new_dir);
 
