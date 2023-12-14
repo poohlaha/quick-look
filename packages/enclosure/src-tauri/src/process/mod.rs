@@ -18,16 +18,12 @@ use tauri::http::HeaderMap;
 use tauri::ipc::{InvokeBody, Request};
 
 /// 图片后缀
-pub const IMAGE_SUFFIXES: [&str; 11] = [
-    "jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "svg", "bmp",
-];
+pub const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "bmp", "svg"];
 
 pub const OTHER_SUFFIX: [&str; 7] = ["pdf", "xls", "xlsx", "doc", "docx", "ppt", "pptx"];
 
 /// 压缩包后缀
-pub const ARCHIVE_SUFFIXES: [&str; 9] = [
-    "zip", "bz2", "gz", "zlib", "tar", "rar", "7z", "tar.xz", "xz",
-];
+pub const ARCHIVE_SUFFIXES: [&str; 10] = ["zip", "bz2", "gz", "zlib", "tar", "rar", "7z", "tar.xz", "xz", "tgz"];
 
 pub const PREVIEW_FILE: &str = "preview.json";
 
@@ -72,7 +68,15 @@ impl Process {
         let suffix = suffix.as_str();
         // image suffix
         if IMAGE_SUFFIXES.contains(&suffix) {
-            let content = Utils::generate_image(data.clone());
+            // svg 需要单独处理
+            let svg = IMAGE_SUFFIXES.get(10).unwrap();
+            let content: String;
+            if svg == &suffix {
+                content = String::from_utf8(data.clone()).map_err(|err| Error::Error(err.to_string()).to_string())?;
+            } else {
+                content = Utils::generate_image(data.clone());
+            }
+
             response.code = 200;
             response.body = content;
             response.suffix_props = SuffixProps {
@@ -138,11 +142,7 @@ impl Process {
     }
 
     /// 读取文件
-    fn prepare_file(
-        suffix: &&str,
-        file_path: &str,
-        response: HttpResponse,
-    ) -> Result<HttpResponse, String> {
+    fn prepare_file(suffix: &&str, file_path: &str, response: HttpResponse) -> Result<HttpResponse, String> {
         // archive suffix
         if ARCHIVE_SUFFIXES.contains(suffix) {
             let reader = FileUtils::read_file_buffer(file_path)?;
@@ -154,11 +154,7 @@ impl Process {
     }
 
     /// 比较临时文件是不是和文件一致
-    fn compare_file(
-        suffix: &&str,
-        file_path: &str,
-        response: HttpResponse,
-    ) -> Result<HttpResponse, String> {
+    fn compare_file(suffix: &&str, file_path: &str, response: HttpResponse) -> Result<HttpResponse, String> {
         info!("prepare to get cache ...");
         let name = &response.file_props.name;
         let temp_dir = FileUtils::create_temp_dir(&response.file_props.prefix, false)?;
@@ -201,8 +197,7 @@ impl Process {
         }
 
         info!("convert `{}` to response !", PREVIEW_FILE);
-        let response = serde_json::from_str(&content)
-            .map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let response = serde_json::from_str(&content).map_err(|err| Error::Error(err.to_string()).to_string())?;
         info!("get file `{}` by cache success !", &file_path);
         Ok(response)
     }
@@ -218,15 +213,12 @@ impl Process {
 
         let mut file_name = String::new();
         if let Some(filename) = filename {
-            let name = filename
-                .to_str()
-                .map_err(|err| Error::Error(err.to_string()).to_string())?;
+            let name = filename.to_str().map_err(|err| Error::Error(err.to_string()).to_string())?;
             file_name = name.to_string();
         }
 
         // decode filename
-        let file_name = urlencoding::decode(&file_name)
-            .map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let file_name = urlencoding::decode(&file_name).map_err(|err| Error::Error(err.to_string()).to_string())?;
         let file_name = file_name.to_string();
         info!("filename decode: {:#?}", &file_name);
         return Ok(file_name);
@@ -234,8 +226,7 @@ impl Process {
 
     /// 获取文件属性
     pub(crate) fn get_file_props(file_path: &str) -> Result<FileProps, String> {
-        let metadata: Metadata =
-            fs::metadata(file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let metadata: Metadata = fs::metadata(file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         let mut file_props = FileProps::default();
         file_props.path = file_path.to_string();
 
@@ -247,10 +238,7 @@ impl Process {
         // 获取文件或目录的最后修改时间
         let modified = metadata.modified().unwrap_or(SystemTime::UNIX_EPOCH);
         // 获取毫秒级的时间戳
-        let milliseconds = modified
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as i64;
+        let milliseconds = modified.duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis() as i64;
 
         // 指定时区为 UTC
         let utc = chrono::Utc.timestamp_millis_opt(milliseconds).unwrap();
@@ -277,14 +265,8 @@ impl Process {
     }
 
     /// 读取文件夹下的所有文件
-    pub fn read_files(
-        path: &Path,
-        unzip_path_str: &str,
-        size: &mut u64,
-        files: &mut Vec<FileProps>,
-    ) -> Result<(), String> {
-        let entries =
-            fs::read_dir(path).map_err(|err| Error::Error(err.to_string()).to_string())?;
+    pub fn read_files(path: &Path, unzip_path_str: &str, size: &mut u64, files: &mut Vec<FileProps>) -> Result<(), String> {
+        let entries = fs::read_dir(path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         for entry in entries {
             let entry = entry.unwrap();
             let path = entry.path();
@@ -307,16 +289,8 @@ impl Process {
                 prefix: "".to_string(),
                 path: relative_path.clone(),
                 full_path: path_str.clone(),
-                size: if path.is_dir() {
-                    String::new()
-                } else {
-                    file_props.size
-                },
-                old_size: if path.is_dir() {
-                    0
-                } else {
-                    file_props.old_size
-                },
+                size: if path.is_dir() { String::new() } else { file_props.size },
+                old_size: if path.is_dir() { 0 } else { file_props.old_size },
                 packed: "".to_string(),
                 modified: file_props.modified,
                 permissions: "".to_string(),
@@ -343,8 +317,7 @@ impl Process {
         let temp_dir_str = temp_dir.as_path().to_string_lossy().to_string();
         let mut copy_options = fs_extra::dir::CopyOptions::new();
         copy_options.overwrite = true;
-        fs_extra::copy_items(&[path], &temp_dir_str, &copy_options)
-            .map_err(|err| Error::Error(err.to_string()).to_string())?;
+        fs_extra::copy_items(&[path], &temp_dir_str, &copy_options).map_err(|err| Error::Error(err.to_string()).to_string())?;
 
         info!("write response into json ...");
         let json_file_path = temp_dir.join(PREVIEW_FILE);

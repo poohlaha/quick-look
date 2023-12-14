@@ -72,14 +72,19 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
             }
           }}
         >
-          <div className="css-dev-only-do-not-override-xu9wm8 ant-upload ant-upload-drag">
-            <span className="ant-upload ant-upload-btn" role="button">
+          <div className="ant-upload ant-upload-drag">
+            <div className="ant-upload ant-upload-btn flex-center flex-direction-column" role="button">
               <div className="ant-upload-drag-container">
                 <p className="ant-upload-drag-icon"></p>
                 <p className="ant-upload-text">拖拽文件或点击打开文件</p>
-                <p className="ant-upload-hint">支持 .js/.css/.ts/.zip 等格式</p>
+                <div className="ant-upload-hint-formats flex-direction-column">
+                  <p className="ant-upload-hint">支持的格式:</p>
+                  <p className="ant-upload-hint">文件: js/css/json/txt/pdf/doc/doc/ppt/pptx/xls/xlsx 等</p>
+                  <p className="ant-upload-hint">图片: jpg/jpeg/png/heic/gif/bmp/ico 等</p>
+                  <p className="ant-upload-hint">压缩包: zip/bz2/gz/rar/7z/tgz 等</p>
+                </div>
               </div>
-            </span>
+            </div>
           </div>
         </div>
       </div>
@@ -88,13 +93,13 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
 
   const getLookHtml = () => {
     if (homeStore.suffixProps.type === 'archive') {
-      return <Archive />
+      return <Archive/>
     }
 
     if (homeStore.suffixProps.type === 'preview') {
       return (
-        <Preview
-          fileName={homeStore.fileName || ''}
+          <Preview
+              fileName={homeStore.fileName || ''}
           content={homeStore.content || []}
           loading={homeStore.loading}
           suffixProps={homeStore.suffixProps || []}

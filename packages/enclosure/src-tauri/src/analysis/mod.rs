@@ -99,8 +99,7 @@ pub fn unarchive(file_path: &str, full_path: &str) -> Result<HttpResponse, Strin
     let mut copy_options = fs_extra::dir::CopyOptions::new();
     copy_options.overwrite = true;
     let download_path = download_path.to_string_lossy().to_string();
-    fs_extra::copy_items(&[full_path], &download_path, &copy_options)
-        .map_err(|err| Error::Error(err.to_string()).to_string())?;
+    fs_extra::copy_items(&[full_path], &download_path, &copy_options).map_err(|err| Error::Error(err.to_string()).to_string())?;
 
     response.code = 200;
     info!("unarchive success!");

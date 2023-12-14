@@ -9,6 +9,7 @@ import { observer } from 'mobx-react-lite'
 interface IImageProps {
   needActions?: boolean
   content: string
+   type: string
 }
 
 const Image: React.FC<IImageProps> = (props: IImageProps): ReactElement => {
@@ -205,21 +206,35 @@ const Image: React.FC<IImageProps> = (props: IImageProps): ReactElement => {
   }
 
   const render = () => {
+      let type = props.type === 'svg'
     return (
-      <div className="image-wrapper flex-center wh100">
-        <img
-          src={props.content || ''}
-          alt=""
-          style={{
-            transform: `translate3d(0px, 0px, 0px) scale3d(${scaleX}, ${scaleY}, 1) rotate(${rotate}deg)`,
-          }}
-        />
-        {getActionsHtml()}
-      </div>
+        <div className="image-wrapper flex-center wh100">
+            {
+                type ? (
+                    <div className="image"
+                         dangerouslySetInnerHTML={{ __html: props.content || '' }}
+                         style={{
+                             transform: `translate3d(0px, 0px, 0px) scale3d(${scaleX}, ${scaleY}, 1) rotate(${rotate}deg)`
+                         }}
+                    />
+                    ) : (
+                    <img
+                        className="image"
+                        src={props.content || ''}
+                        alt=""
+                        style={{
+                            transform: `translate3d(0px, 0px, 0px) scale3d(${scaleX}, ${scaleY}, 1) rotate(${rotate}deg)`
+                        }}
+                    />
+                )
+            }
+
+            {getActionsHtml()}
+        </div>
     )
   }
 
-  return render()
+    return render()
 }
 
 export default observer(Image)

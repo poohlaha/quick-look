@@ -37,11 +37,8 @@ impl Preview {
     fn prepare_pdf(file_path: &str, mut response: HttpResponse) -> Result<HttpResponse, String> {
         info!("prepare pdf ...");
 
-        let document = mupdf::document::Document::open(file_path)
-            .map_err(|err| Error::Error(err.to_string()).to_string())?;
-        let pages = document
-            .pages()
-            .map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let document = mupdf::document::Document::open(file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let pages = document.pages().map_err(|err| Error::Error(err.to_string()).to_string())?;
 
         let temp_dir = FileUtils::create_temp_dir(&response.file_props.prefix, true)?;
         for (i, page) in pages.enumerate() {
@@ -81,8 +78,7 @@ impl Preview {
     /// 读取图片转成 base64
     fn read_pictures(file_path: &PathBuf) -> Result<Vec<PreviewProps>, String> {
         let mut contents: Vec<PreviewProps> = Vec::new();
-        let entries =
-            fs::read_dir(&file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let entries = fs::read_dir(&file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
 
         for entry in entries {
             let entry = entry.unwrap();

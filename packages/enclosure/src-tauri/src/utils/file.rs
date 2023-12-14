@@ -15,8 +15,7 @@ pub struct FileUtils;
 impl FileUtils {
     /// 打开文件
     pub fn open_file(file_path: &str) -> Result<File, String> {
-        let file =
-            File::open(&file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let file = File::open(&file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         Ok(file)
     }
 
@@ -24,8 +23,7 @@ impl FileUtils {
     pub fn read_file(file_path: &str) -> Result<Vec<u8>, String> {
         let mut file = Self::open_file(file_path)?;
         let mut contents: Vec<u8> = Vec::new();
-        file.read_to_end(&mut contents)
-            .map_err(|err| Error::Error(err.to_string()).to_string())?;
+        file.read_to_end(&mut contents).map_err(|err| Error::Error(err.to_string()).to_string())?;
         Ok(contents)
     }
 
@@ -48,35 +46,20 @@ impl FileUtils {
     pub fn clear_yesterdays_dirs(file_path: &PathBuf) -> Result<(), String> {
         let now = chrono::Local::now();
         let yesterday = now - Duration::days(1);
-        let yesterday_start = yesterday
-            .date_naive()
-            .and_hms_opt(0, 0, 0)
-            .unwrap()
-            .timestamp();
-        let yesterday_end = yesterday
-            .date_naive()
-            .and_hms_opt(23, 59, 59)
-            .unwrap()
-            .timestamp();
+        let yesterday_start = yesterday.date_naive().and_hms_opt(0, 0, 0).unwrap().timestamp();
+        let yesterday_end = yesterday.date_naive().and_hms_opt(23, 59, 59).unwrap().timestamp();
 
-        let entries =
-            fs::read_dir(file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let entries = fs::read_dir(file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         for entry in entries {
             if let Ok(entry) = entry {
                 let path = entry.path();
 
-                let metadata = path
-                    .metadata()
-                    .map_err(|err| Error::Error(err.to_string()).to_string())?;
-                let modified_time = metadata
-                    .modified()
-                    .map_err(|err| Error::Error(err.to_string()).to_string())?;
+                let metadata = path.metadata().map_err(|err| Error::Error(err.to_string()).to_string())?;
+                let modified_time = metadata.modified().map_err(|err| Error::Error(err.to_string()).to_string())?;
 
-                let modified_time =
-                    chrono::DateTime::<chrono::Local>::from(modified_time).timestamp();
+                let modified_time = chrono::DateTime::<chrono::Local>::from(modified_time).timestamp();
                 if modified_time >= yesterday_start && modified_time <= yesterday_end {
-                    fs::remove_dir_all(path)
-                        .map_err(|err| Error::Error(err.to_string()).to_string())?;
+                    fs::remove_dir_all(path).map_err(|err| Error::Error(err.to_string()).to_string())?;
                 }
             }
         }
@@ -98,12 +81,10 @@ impl FileUtils {
 
         if need_remove_dir {
             if unzip_path.exists() {
-                fs::remove_dir_all(unzip_path.clone())
-                    .map_err(|err| Error::Error(err.to_string()).to_string())?;
+                fs::remove_dir_all(unzip_path.clone()).map_err(|err| Error::Error(err.to_string()).to_string())?;
             }
 
-            fs::create_dir_all(&unzip_path)
-                .map_err(|err| Error::Error(err.to_string()).to_string())?;
+            fs::create_dir_all(&unzip_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         }
 
         Ok(unzip_path)
@@ -152,8 +133,7 @@ impl FileUtils {
     /// 清空文件并写入新的内容
     pub fn write_to_file_when_clear(file_path: &str, content: &str) -> Result<(), String> {
         // 打开文件以进行覆盖写入
-        let mut file =
-            File::create(&file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let mut file = File::create(&file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         file.write_all(content.as_bytes())
             .map_err(|err| Error::Error(err.to_string()).to_string())?;
         file.flush().unwrap(); // 刷新文件缓冲

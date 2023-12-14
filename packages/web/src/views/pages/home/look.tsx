@@ -45,7 +45,7 @@ const Look: React.FC<ILookProps> = (props: ILookProps): ReactElement => {
     // image
     let suffixProps: { [K: string]: any } = props.suffixProps || {}
     if (suffixProps.type === 'image') {
-      return <Image content={props.content || ''} />
+      return <Image content={props.content || ''} type={suffixProps.name || ''}/>
     }
 
     if (suffix === 'plist') {
