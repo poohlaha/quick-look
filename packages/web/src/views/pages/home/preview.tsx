@@ -3,12 +3,13 @@
  * @date 2023-12-12
  * @author poohlaha
  */
-import React, { ReactElement, useState } from 'react'
+import React, {ReactElement, useRef, useState} from 'react'
 import { observer } from 'mobx-react-lite'
 import Loading from '@views/components/loading/loading'
 import Utils from '@utils/utils'
 import { TOAST } from '@utils/base'
 import { message } from 'antd'
+import useMount from '@hooks/useMount'
 
 interface IPreviewProps {
   fileName: string
@@ -24,6 +25,7 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
   const [oldCurrentPage, setOldCurrentPage] = useState('1')
   const [pageNumber, setPageNumber] = useState(1)
   const [scale, setScale] = useState(scaleDefault)
+  const scrollRef = useRef(null)
 
   const SCALE_STEP: number = 0.2
   const SCALE_MIN: number = 0.4 // 倍数
@@ -33,6 +35,42 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
     let imageDom = document.getElementById(`image-${value || 1}`)
     if (!imageDom) return
     imageDom.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  // 判断左边是否在可视区域内
+  const scrollToLeftPreview = (value: number) => {
+    let leftDom = document.querySelector('.preview-left')
+    if (!leftDom) {
+      return
+    }
+
+    // @ts-ignore
+    let leftImageDom = document.getElementById(`preview-image-${value || 1}`)
+    if (!leftImageDom) return
+
+    let images = leftDom.querySelectorAll('.image-box') || []
+    let imageList: Array<{[K: string]: any}> = getImageList(images, 8)
+    if (imageList.length === 0) {
+      return
+    }
+
+    let image = imageList[value - 1] || {}
+    if (Utils.isObjectNull(image)) {
+      return
+    }
+
+    let domTop = leftDom.scrollTop
+    let rect = leftDom.getBoundingClientRect() || {}
+
+    let imageTop = image.top - domTop
+    let imageBottom = image.bottom - domTop
+    let top = rect.top - 44
+    let bottom = rect.bottom - 44
+
+    let isInArea = imageTop >= top && imageBottom <= bottom
+    if (!isInArea) {
+      leftImageDom.scrollIntoView({ behavior: 'smooth' })
+    }
   }
 
   // 缩小
@@ -54,6 +92,76 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
       message: `${Math.fround(scaleMin * 100)}%`,
       type: 2,
     })
+  }
+
+  useMount(() => {
+    getPage()
+  })
+
+  const getImageList = (images: any = [], padding: number = 0) => {
+    let imageList: Array<{[K: string]: any}> = []
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i]
+      const rect = image.getBoundingClientRect()
+      let top = i * rect.height
+      imageList.push({
+        top: top + (i > 0 ? padding : 0),
+        bottom: top + rect.height
+      })
+    }
+
+    return imageList
+  }
+
+
+  // 防抖
+  const debounce = (fn: Function, delay: number = 300) => {
+    let timer: any = null
+    let handler = function () {
+      if (timer) {
+        clearTimeout(timer)
+      }
+
+      // @ts-ignore
+      let that = this
+      let args = arguments
+      timer = setTimeout(() => {
+        fn.apply(that, args)
+      }, delay)
+    }
+
+    // @ts-ignore
+    handler.cancel = () => {
+      if (timer) clearTimeout(timer)
+    }
+
+    return handler
+  }
+
+  const onScroll = debounce((dom: HTMLDivElement, imageList: Array<{[K: string]: any}>) => {
+    console.log('scroll')
+    let domTop = dom.scrollTop
+    for (let i = 0; i < imageList.length; i++) {
+      const image: {[K: string]: any} = imageList[i] || {}
+      if (domTop >= image.top && domTop <= image.bottom) {
+        setCurrentPage(`${i + 1}`)
+        setOldCurrentPage(`${i + 1}`)
+        setPageNumber(i + 1 || 1)
+        scrollToLeftPreview(i + 1)
+        break
+      }
+    }
+  }, 50)
+
+  const getPage = () => {
+    if (!scrollRef || !scrollRef.current) return
+
+    // @ts-ignore
+    let dom = scrollRef.current as HTMLDivElement
+    let images = dom.querySelectorAll('.image-box') || []
+    let imageList: Array<{[K: string]: any}> = getImageList(images)
+
+    dom.addEventListener('scroll', onScroll.bind(dom, dom, imageList))
   }
 
   // 放大
@@ -85,20 +193,28 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
     return (
       <div className="preview wh100">
         <div className="preview-wrapper flex wh100">
-          {/*
           <div className="preview-left h100 overflow-y-auto flex-direction-column flex-align-center">
             {content.map((item: { [K: string]: any } = {}, index: number) => {
               return (
-                <div className="image-box flex-direction-column" key={index}>
+                <div
+                    id={`preview-image-${index + 1}`}
+                    className={`image-box flex-direction-column ${pageNumber === index + 1 ? 'active' : ''}`}
+                    key={index}
+                    onClick={() => {
+                      setCurrentPage(`${index + 1}`)
+                      setOldCurrentPage(`${index + 1}`)
+                      setPageNumber(index + 1)
+                      scrollTo(index + 1)
+                    }}
+                >
                   <img src={item.content || ''} className="w100 flex-1" />
                   <p className="text flex-center">{index + 1}</p>
                 </div>
               )
             })}
           </div>
-           */}
 
-          <div className="preview-right h100 overflow-auto flex-1 flex-direction-column flex-align-center">
+          <div className="preview-right h100 overflow-auto flex-1 flex-direction-column flex-align-center" ref={scrollRef}>
             {content.map((item: { [K: string]: any } = {}, index: number) => {
               return (
                 <div className="image-box" key={index} id={`image-${index + 1}`}>
@@ -151,10 +267,12 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
                   if (page <= 1) {
                     page = 1
                   }
+
                   setCurrentPage(`${page}`)
                   setOldCurrentPage(`${page}`)
                   setPageNumber(page)
                   scrollTo(page)
+                  scrollToLeftPreview(page)
                 }}
               >
                 <span className="action">
@@ -179,37 +297,37 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
               </div>
 
               {/* 输入页数 */}
-              <div className="current-page">
+              <div className={`current-page ${inputFocus ? 'focus' : ''}`}>
                 <input
-                  className="wh100"
-                  value={currentPage}
-                  onFocus={e => {
-                    e.target.select()
-                    setInputFocus(true)
-                  }}
-                  onBlur={() => {
-                    setInputFocus(false)
-                    if (Utils.isBlank(currentPage)) {
-                      setCurrentPage(oldCurrentPage)
-                    }
-                  }}
-                  onChange={(e: any) => {
-                    let value = e.target.value || ''
-                    setCurrentPage(value)
-                    if (!Utils.isBlank(value)) {
-                      let valueInt = parseInt(value)
-                      if (valueInt <= 0) {
-                        valueInt = 1
+                    className="wh100"
+                    value={currentPage}
+                    onFocus={e => {
+                      e.target.select()
+                      setInputFocus(true)
+                    }}
+                    onBlur={() => {
+                      setInputFocus(false)
+                      if (Utils.isBlank(currentPage)) {
+                        setCurrentPage(oldCurrentPage)
                       }
-                      if (valueInt > content.length) {
-                        valueInt = content.length
+                    }}
+                    onChange={(e: any) => {
+                      let value = e.target.value || ''
+                      setCurrentPage(value)
+                      if (!Utils.isBlank(value)) {
+                        let valueInt = parseInt(value)
+                        if (valueInt <= 0) {
+                          valueInt = 1
+                        }
+                        if (valueInt > content.length) {
+                          valueInt = content.length
+                        }
+                        setCurrentPage(`${valueInt}`)
+                        setOldCurrentPage(`${valueInt}`)
+                        setPageNumber(valueInt || 1)
+                        scrollTo(valueInt)
                       }
-                      setCurrentPage(`${valueInt}`)
-                      setOldCurrentPage(`${valueInt}`)
-                      setPageNumber(valueInt || 1)
-                      scrollTo(valueInt)
-                    }
-                  }}
+                    }}
                 />
               </div>
 
@@ -227,10 +345,12 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
                   if (page >= content.length) {
                     page = content.length
                   }
+
                   setCurrentPage(`${page}`)
                   setOldCurrentPage(`${page}`)
                   setPageNumber(page)
                   scrollTo(page)
+                  scrollToLeftPreview(page)
                 }}
               >
                 <span className="action">

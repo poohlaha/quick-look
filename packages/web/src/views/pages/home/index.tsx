@@ -99,7 +99,7 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
     if (homeStore.suffixProps.type === 'preview') {
       return (
           <Preview
-              fileName={homeStore.fileName || ''}
+          fileName={homeStore.fileName || ''}
           content={homeStore.content || []}
           loading={homeStore.loading}
           suffixProps={homeStore.suffixProps || []}
