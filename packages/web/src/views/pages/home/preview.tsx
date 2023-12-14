@@ -30,6 +30,8 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
   const SCALE_STEP: number = 0.2
   const SCALE_MIN: number = 0.4 // 倍数
   const SCALE_MAX: number = 4 // 倍数
+  const IMAGE_WIDTH: number = 600
+  const IMAGE_HEIGHT: number = 850
 
   const scrollTo = (value: number) => {
     let imageDom = document.getElementById(`image-${value || 1}`)
@@ -139,7 +141,6 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
   }
 
   const onScroll = debounce((dom: HTMLDivElement, imageList: Array<{[K: string]: any}>) => {
-    console.log('scroll')
     let domTop = dom.scrollTop
     for (let i = 0; i < imageList.length; i++) {
       const image: {[K: string]: any} = imageList[i] || {}
@@ -185,6 +186,17 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
     })
   }
 
+  // 判断是否超出右边宽度
+  const overPreviewWidth = () => {
+    if (!scrollRef || !scrollRef.current) return false
+
+    // @ts-ignore
+    let dom = scrollRef.current as HTMLDivElement
+    let rect = dom.getBoundingClientRect() || {}
+    let width = IMAGE_WIDTH * scale
+    return width > rect.width
+  }
+
   const render = () => {
     if (!Array.isArray(props.content)) return <div></div>
     let content = props.content || []
@@ -214,11 +226,13 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
             })}
           </div>
 
-          <div className="preview-right h100 overflow-auto flex-1 flex-direction-column flex-align-center" ref={scrollRef}>
+          <div className={`preview-right h100 overflow-auto flex-1 flex-direction-column ${overPreviewWidth() ? '' : 'flex-align-center'}`} ref={scrollRef}>
             {content.map((item: { [K: string]: any } = {}, index: number) => {
+              let width = IMAGE_WIDTH * scale
+              let height = IMAGE_HEIGHT * scale
               return (
-                <div className="image-box" key={index} id={`image-${index + 1}`}>
-                  <img src={item.content || ''} style={{ transform: `scale(${scale})` }} />
+                <div className="image-box" key={index} id={`image-${index + 1}`} style={{ width, height }} >
+                  <img className="wh100" src={item.content || ''} />
                 </div>
               )
             })}
