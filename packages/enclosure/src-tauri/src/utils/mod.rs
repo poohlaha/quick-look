@@ -1,12 +1,11 @@
-use std::path::{Path, PathBuf};
 use base64::Engine;
+use std::path::{Path, PathBuf};
 
 pub mod file;
 
 pub struct Utils;
 
 impl Utils {
-
     /// 获取解压目录
     pub fn get_program_dir() -> PathBuf {
         let path;
@@ -27,5 +26,4 @@ impl Utils {
         content.push_str(&str);
         return content;
     }
-
 }

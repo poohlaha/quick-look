@@ -1,15 +1,15 @@
 //! pdf、doc、ppt预览
 
-use std::fs;
-use std::path::{PathBuf};
-use log::{info};
-use mupdf::Matrix;
-use serde::{Deserialize, Serialize};
 use crate::analysis::{HttpResponse, SuffixProps};
 use crate::error::Error;
-use crate::process::{OTHER_SUFFIX, PREVIEW_FILE};
+use crate::process::{Process, OTHER_SUFFIX};
 use crate::utils::file::FileUtils;
 use crate::utils::Utils;
+use log::info;
+use mupdf::Matrix;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::PathBuf;
 
 pub struct Preview;
 
@@ -21,7 +21,6 @@ pub struct PreviewProps {
 }
 
 impl Preview {
-
     pub fn exec(response: HttpResponse) -> Result<HttpResponse, String> {
         let suffix = response.file_props.suffix.clone();
 
@@ -38,8 +37,11 @@ impl Preview {
     fn prepare_pdf(file_path: &str, mut response: HttpResponse) -> Result<HttpResponse, String> {
         info!("prepare pdf ...");
 
-        let document = mupdf::document::Document::open(file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
-        let pages = document.pages().map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let document = mupdf::document::Document::open(file_path)
+            .map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let pages = document
+            .pages()
+            .map_err(|err| Error::Error(err.to_string()).to_string())?;
 
         let temp_dir = FileUtils::create_temp_dir(&response.file_props.prefix, true)?;
         for (i, page) in pages.enumerate() {
@@ -53,7 +55,9 @@ impl Preview {
             let output_dir = output_path.as_path().to_string_lossy().to_string();
 
             println!("output_dir: {}", &output_dir);
-            pixmap.save_as(&output_dir, mupdf::ImageFormat::PNG).map_err(|err| Error::Error(err.to_string()).to_string())?;
+            pixmap
+                .save_as(&output_dir, mupdf::ImageFormat::PNG)
+                .map_err(|err| Error::Error(err.to_string()).to_string())?;
         }
 
         info!("read pictures ...");
@@ -68,34 +72,17 @@ impl Preview {
             list: vec![pdf.to_string()],
         };
 
-        // 拷贝原文件到目录
-        info!("copy origin file to temp dir ...");
-        let mut copy_options = fs_extra::dir::CopyOptions::new();
-        copy_options.overwrite = true;
-        let path = &response.file_props.path;
-        fs_extra::copy_items(&[path], &temp_dir.as_path().to_string_lossy().to_string(), &copy_options).map_err(|err| Error::Error(err.to_string()).to_string())?;
-
         // 写入到 json 文件
-        info!("write response into json ...");
-        let json_file_path = temp_dir.clone().join(PREVIEW_FILE);
-        Self::write_to_file(&json_file_path.as_path().to_string_lossy().to_string(), &response)?;
-
+        Process::copy_write_to_file(&temp_dir, &response)?;
         info!("prepare pdf success !");
         return Ok(response);
-    }
-
-    /// 写入到文件
-    fn write_to_file(file_path: &str, response: &HttpResponse) -> Result<(), String> {
-        // 序列化为漂亮格式的 JSON 字符串
-        let content = serde_json::to_string_pretty(&response).unwrap();
-        FileUtils::write_to_file_when_clear(file_path, &content)?;
-        Ok(())
     }
 
     /// 读取图片转成 base64
     fn read_pictures(file_path: &PathBuf) -> Result<Vec<PreviewProps>, String> {
         let mut contents: Vec<PreviewProps> = Vec::new();
-        let entries = fs::read_dir(&file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let entries =
+            fs::read_dir(&file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
 
         for entry in entries {
             let entry = entry.unwrap();
@@ -117,6 +104,4 @@ impl Preview {
 
         return Ok(contents);
     }
-
-
 }

@@ -98,7 +98,7 @@ const Preview: React.FC<IPreviewProps> = (props: IPreviewProps): ReactElement =>
           </div>
            */}
 
-          <div className="preview-right h100 overflow-y-auto flex-1 flex-direction-column flex-align-center">
+          <div className="preview-right h100 overflow-auto flex-1 flex-direction-column flex-align-center">
             {content.map((item: { [K: string]: any } = {}, index: number) => {
               return (
                 <div className="image-box" key={index} id={`image-${index + 1}`}>
