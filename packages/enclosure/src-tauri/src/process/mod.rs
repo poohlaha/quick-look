@@ -20,7 +20,7 @@ use tauri::ipc::{InvokeBody, Request};
 /// 图片后缀
 pub const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "bmp", "svg"];
 
-pub const OTHER_SUFFIX: [&str; 7] = ["pdf", "xls", "xlsx", "doc", "docx", "ppt", "pptx"];
+pub const OTHER_SUFFIX: [&str; 7] = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"];
 
 /// 压缩包后缀
 pub const ARCHIVE_SUFFIXES: [&str; 10] = ["zip", "bz2", "gz", "zlib", "tar", "rar", "7z", "tar.xz", "xz", "tgz"];
@@ -88,7 +88,7 @@ impl Process {
             return Ok(response);
         }
 
-        // pdf
+        // pdf, doc
         if OTHER_SUFFIX.contains(&suffix) {
             return Preview::exec(response.clone());
         }

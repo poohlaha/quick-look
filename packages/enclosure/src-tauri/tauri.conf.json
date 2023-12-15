@@ -11,6 +11,7 @@
   },
   "tauri": {
     "bundle": {
+      "publisher": "poohlaha",
       "active": true,
       "targets": "all",
       "fileAssociations": [

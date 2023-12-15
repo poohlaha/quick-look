@@ -7,8 +7,9 @@ mod error;
 mod preview;
 mod process;
 mod utils;
+mod system;
 
-use tauri::Manager;
+use tauri::{Manager};
 use tauri::tray::{ClickType, TrayIconBuilder};
 use analysis::{file_handler, read_file_association, unarchive};
 
@@ -31,8 +32,18 @@ fn main() {
                         }
                     }
                 }).build(app);
+
+            app.once_global("application:openURLs:", move |event| {
+                println!("application:openURLs : {:#?}", event);
+            });
+
+            app.on_menu_event(move |app, event| {
+                println!("event id: {:#?}", event.id)
+            });
+
             Ok(())
         })
+        .menu(system::menu::Menu::create_system_menus)
         .invoke_handler(tauri::generate_handler![file_handler, unarchive])
         .run(tauri::generate_context!())
         .expect("error while running QuickLook application");
