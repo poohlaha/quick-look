@@ -62,11 +62,7 @@
         "width": 1024,
         "height": 960
       }
-    ],
-    "trayIcon": {
-      "iconPath": "icons/32x32.png",
-      "title": "QuickLook"
-    }
+    ]
   },
   "plugins": {
     "shell": {
