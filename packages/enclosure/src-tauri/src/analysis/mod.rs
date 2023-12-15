@@ -69,8 +69,8 @@ pub fn read_file_association() {
 
 /// 通过文件流或文件路径读取文件
 #[tauri::command]
-pub fn file_handler(request: Request) -> Result<HttpResponse, String> {
-    Process::exec(request)
+pub fn file_handler(app: tauri::AppHandle, request: Request) -> Result<HttpResponse, String> {
+    Process::exec(&app, request)
 }
 
 /// 解压压缩包

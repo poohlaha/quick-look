@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use log::{error, info};
 use tauri::menu::{AboutMetadata, MenuEvent, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu};
 use tauri::{AppHandle, Manager, Wry};
-use crate::analysis::{History, HttpResponse};
+use crate::analysis::{History};
 use crate::process::{Process};
 
 pub struct Menu;
@@ -87,20 +87,8 @@ impl Menu {
         menu
     }
 
-    // 获取 File 菜单及其子菜单
-    fn get_file_menus(app: &AppHandle<Wry>) -> tauri::Result<Submenu<Wry>> {
-        // Recent Files
-        let recent_files_menu = Submenu::with_id_and_items(
-            app,
-            FILE_RECENT_FILES,
-            MENUS.get(1).unwrap(),
-            true,
-            &[]
-        )?;
 
-        // 读取 HISTORY 文件
-        let (_, contents) = Process::read_history().unwrap();
-
+    fn get_file_submenus(app: &AppHandle, recent_files_menu: &mut Submenu<Wry>, contents: &Vec<History>) {
         // 查找是否有相同的名字，如果是相同名字，则 name 用 path 代替
         let mut submenu_set = HashSet::new();
         let mut submenu_contents: Vec<History> = Vec::new();
@@ -126,6 +114,23 @@ impl Menu {
 
             recent_files_menu.append(&file_menu).unwrap();
         }
+    }
+
+    // 获取 File 菜单及其子菜单
+    fn get_file_menus(app: &AppHandle<Wry>) -> tauri::Result<Submenu<Wry>> {
+        // Recent Files
+        let mut recent_files_menu = Submenu::with_id_and_items(
+            app,
+            FILE_RECENT_FILES,
+            MENUS.get(1).unwrap(),
+            true,
+            &[]
+        )?;
+
+        // 读取 HISTORY 文件
+        let (_, contents) = Process::read_history().unwrap();
+
+        Self::get_file_submenus(app, &mut recent_files_menu, &contents);
 
         // File
         Submenu::with_items(
@@ -138,24 +143,19 @@ impl Menu {
         )
     }
 
-    /// 清空子菜单
-    fn clear_submenus(app: &AppHandle, ids: &Vec<String>) {
-        if ids.is_empty() {
-            info!("clear submenus ids is empty !");
-            return
-        }
-
+    /// 获取 File Menu
+    fn get_file_item(app: &AppHandle) -> Option<Submenu<Wry>> {
         let menus = app.menu();
         if menus.is_none() {
             error!("get menus error !");
-            return
+            return None;
         }
 
         let menus = menus.unwrap();
         let items = menus.items();
         if items.is_err() {
             error!("get menu items error: {}", items.err().unwrap().to_string());
-            return
+            return None;
         }
 
         let items = items.unwrap();
@@ -178,37 +178,89 @@ impl Menu {
                 let file_items = file_items.unwrap();
                 for file_item in file_items {
                     if let MenuItemKind::Submenu(sub_menu) = file_item {
-                        let file_items = sub_menu.items();
-                        if let Ok(file_items) = file_items {
-                            // remove sub menu
-                            for id in ids.iter() {
-                                let remove_item = file_items.iter().find(|item| {
-                                    if let MenuItemKind::MenuItem(item) = item {
-                                        println!("sub menu item id1: {:#?}", item.id())
-                                    }
+                        return Some(sub_menu)
+                    }
+                }
+            }
+        }
 
-                                    return item.id() == id;
-                                });
+        None
+    }
 
-                                if remove_item.is_none() {
-                                    continue
-                                }
+    /// 清空子菜单
+    fn clear_submenus(app: &AppHandle, ids: &Vec<String>) {
+        if ids.is_empty() {
+            info!("clear submenus ids is empty !");
+            return
+        }
 
-                                let remove_item = remove_item.unwrap();
-                                match sub_menu.remove(remove_item) {
-                                    Ok(_) => {
-                                        error!("remove menu `{}` success !", id)
-                                    }
-                                    Err(err) => {
-                                        error!("remove menu `{}` error: {}", id, err.to_string())
-                                    }
-                                }
-                            }
+        let file_menu = Self::get_file_item(app);
+        if let Some(file_menu) = file_menu {
+            let file_items = file_menu.items();
+            if let Ok(file_items) = file_items {
+                // remove sub menu
+                for id in ids.iter() {
+                    let remove_item = file_items.iter().find(|item| {
+                        if let MenuItemKind::MenuItem(item) = item {
+                            println!("sub menu item id1: {:#?}", item.id())
+                        }
+
+                        return item.id() == id;
+                    });
+
+                    if remove_item.is_none() {
+                        continue
+                    }
+
+                    let remove_item = remove_item.unwrap();
+                    match file_menu.remove(remove_item) {
+                        Ok(_) => {
+                            error!("remove menu `{}` success !", id)
+                        }
+                        Err(err) => {
+                            error!("remove menu `{}` error: {}", id, err.to_string())
                         }
                     }
                 }
             }
         }
+    }
+
+    /// 更新 File submenus
+    pub fn update_file_submenus(app: &AppHandle) {
+        info!("update `File` `Submenus` !");
+        let file_menu = Self::get_file_item(app);
+        if file_menu.is_none() {
+            return
+        }
+
+        let mut file_menu = file_menu.unwrap();
+        let file_items = file_menu.items();
+        if let Ok(file_items) = file_items {
+            let (_, contents) = Process::read_history().unwrap();
+            // 删除全部菜单再更新
+            info!("remove all `File` `Submenus` ...");
+            for file_item in file_items.iter() {
+                match file_menu.remove(file_item) {
+                    Ok(_) => {
+                        error!("remove menu `{}` success !", file_item.id().0)
+                    }
+                    Err(err) => {
+                        error!("remove menu `{}` error: {}", file_item.id().0, err.to_string())
+                    }
+                }
+            }
+
+            if contents.is_empty() {
+                info!("read history, content is empty, remove all `File` `Submenus` !");
+                return
+            }
+
+            // 重新设置菜单
+            Self::get_file_submenus(app, &mut file_menu, &contents);
+        }
+
+
     }
 
     /// 菜单点击事件

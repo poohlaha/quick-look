@@ -38,11 +38,11 @@ pub struct Process;
 
 impl Process {
     /// 通过文件流读取文件
-    pub fn exec(request: Request) -> Result<HttpResponse, String> {
+    pub fn exec(app: &tauri::AppHandle, request: Request) -> Result<HttpResponse, String> {
         // get filename in headers
         let file_name = Self::get_filename(request.headers())?;
         let response = Self::get_exec_response(&file_name);
-        Self::prepare(request.body(), response)
+        Self::prepare(app,request.body(), response)
     }
 
     fn get_exec_response(filename: &str) -> HttpResponse {
@@ -90,7 +90,7 @@ impl Process {
         Ok((file_path, contents))
     }
 
-    fn prepare(body: &InvokeBody, response: HttpResponse) -> Result<HttpResponse, String> {
+    fn prepare(app: &tauri::AppHandle, body: &InvokeBody, response: HttpResponse) -> Result<HttpResponse, String> {
         let res: HttpResponse;
         if let InvokeBody::Raw(data) = body {
             // blob

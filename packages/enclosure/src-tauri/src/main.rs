@@ -48,7 +48,7 @@ fn main() {
         .menu(system::menu::Menu::create_system_menus)
         .invoke_handler(tauri::generate_handler![file_handler, unarchive])
         .run(tauri::generate_context!())
-        .expect("error while running QuickLook application");
+        .expect("error while running `QuickLook` application");
 
     // Trigger `application:openURLs:`
     read_file_association();
