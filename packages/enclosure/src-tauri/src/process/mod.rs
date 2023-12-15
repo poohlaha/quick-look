@@ -1,6 +1,6 @@
 //! 文件操作
 
-use crate::analysis::{FileProps, HttpResponse, SuffixProps};
+use crate::analysis::{FileProps, History, HttpResponse, SuffixProps};
 use crate::archive::Archive;
 use crate::error::Error;
 use crate::preview::Preview;
@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 use tauri::http::HeaderMap;
 use tauri::ipc::{InvokeBody, Request};
+use uuid::Uuid;
 
 /// 图片后缀
 pub const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "bmp", "svg"];
@@ -27,39 +28,125 @@ pub const ARCHIVE_SUFFIXES: [&str; 10] = ["zip", "bz2", "gz", "zlib", "tar", "ra
 
 pub const PREVIEW_FILE: &str = "preview.json";
 
+// history
+pub const HISTORY_FILE: &str = "history";
+
+// history count
+pub const HISTORY_COUNT: usize = 20;
+
 pub struct Process;
 
 impl Process {
     /// 通过文件流读取文件
     pub fn exec(request: Request) -> Result<HttpResponse, String> {
+        // get filename in headers
+        let file_name = Self::get_filename(request.headers())?;
+        let response = Self::get_exec_response(&file_name);
+        Self::prepare(request.body(), response)
+    }
+
+    fn get_exec_response(filename: &str) -> HttpResponse {
         let mut response = HttpResponse::default();
         response.code = 500;
 
-        // get filename in headers
-        let file_name = Self::get_filename(request.headers())?;
-
         // file suffix
-        let file_suffix = FileUtils::get_file_suffix(&file_name);
-        response.file_props.name = file_name.clone();
+        let file_suffix = FileUtils::get_file_suffix(&filename);
+        response.file_props.name = filename.to_string();
         response.file_props.suffix = file_suffix.clone();
 
-        if let Some(index) = file_name.rfind('.') {
-            let name = &file_name[..index];
+        if let Some(index) = filename.rfind('.') {
+            let name = &filename[..index];
             response.file_props.prefix = name.to_string();
         } else {
-            response.file_props.prefix = file_name.clone();
+            response.file_props.prefix = filename.to_string();
         }
 
-        let body = request.body();
+        response
+    }
+
+    /// 根据路径执行
+    pub fn exec_by_file_path(filename: &str, file_path: &str) -> Result<HttpResponse, String> {
+        let response = Self::get_exec_response(&filename);
+        Self::prepare_json_by_file_path(file_path, response)
+    }
+
+    /// 读取历史记录
+    pub fn read_history() -> Result<(String, Vec<History>), String> {
+        let path = FileUtils::create_temp_dir("", false)?;
+        let path = path.join(HISTORY_FILE);
+        let file_path = path.as_path().to_string_lossy().to_string();
+        println!("history file path: {}", &file_path);
+
+        let mut contents: Vec<History> = Vec::new();
+
+        if path.exists() {
+            info!("history found ...");
+            let content = FileUtils::read_file_string(&file_path)?;
+            if !content.is_empty() {
+                contents = serde_json::from_str(&content).map_err(|err| Error::Error(err.to_string()).to_string())?;
+            }
+        }
+
+        Ok((file_path, contents))
+    }
+
+    fn prepare(body: &InvokeBody, response: HttpResponse) -> Result<HttpResponse, String> {
+        let res: HttpResponse;
         if let InvokeBody::Raw(data) = body {
             // blob
-            return Self::prepare_blob(data, response);
+            res = Self::prepare_blob(data, response.clone())?;
         } else if let InvokeBody::Json(data) = body {
             // json
-            return Self::prepare_json(data, response);
+            res = Self::prepare_json(data, response.clone())?;
+        } else {
+            res = response.clone();
         }
 
-        return Ok(response);
+        // 存储历史记录
+        let (file_path, mut contents) = Self::read_history()?;
+
+        // 判断名字和路径是否已在存，如果不存在则添加
+        let file_props = &res.file_props;
+        let name = &file_props.name;
+        let path = &file_props.path;
+        let uuid = Uuid::new_v4().to_string();
+
+        let mut has_found = false;
+        if !contents.is_empty() {
+            let found = contents.iter().find(|c| &c.name == name && &c.path == path);
+            if found.is_some() {
+                has_found = true
+            }
+        }
+
+        // 已找到
+        if has_found {
+            info!("found history ...");
+            return Ok(res);
+        }
+
+        // 未找到
+        info!("not found history ...");
+
+        // 按时间倒序
+        contents.sort_by(|a, b| b.update_time.cmp(&a.update_time));
+
+        // 判断是不是条数大于 HISTORY_COUNT
+        if contents.len() >= HISTORY_COUNT {
+           contents = contents[..HISTORY_COUNT - 1].to_vec(); // 切掉 HISTORY_COUNT - 1 条
+        }
+
+        contents.push(History {
+            id: uuid,
+            name: name.to_string(),
+            path: path.to_string(),
+            update_time: chrono::Local::now().timestamp()
+        });
+
+        // 写入 history
+        let content = serde_json::to_string_pretty(&contents).unwrap();
+        FileUtils::write_to_file_when_clear(&file_path, &content)?;
+        return Ok(res);
     }
 
     /// 处理二进制数据
@@ -84,7 +171,7 @@ impl Process {
                 _type: String::from("image"),
                 list: IMAGE_SUFFIXES.iter().map(|str| str.to_string()).collect(),
             };
-            info!("success");
+            info!("get image data success!");
             return Ok(response);
         }
 
@@ -102,12 +189,12 @@ impl Process {
             _type: String::new(),
             list: Vec::new(),
         };
-        info!("success");
+        info!("get blob data success");
         return Ok(response);
     }
 
     /// 读取 json 数据
-    fn prepare_json(data: &Value, mut response: HttpResponse) -> Result<HttpResponse, String> {
+    fn prepare_json(data: &Value, response: HttpResponse) -> Result<HttpResponse, String> {
         let map = Map::new();
         let obj: &Map<String, Value> = data.as_object().unwrap_or(&map);
         let file_path = obj.get("filePath");
@@ -115,9 +202,14 @@ impl Process {
             return Err(Error::Error("`fileName` not in headers !".to_string()).to_string());
         }
 
+        let file_path = file_path.unwrap().as_str().unwrap();
+        Self::prepare_json_by_file_path(file_path, response)
+    }
+
+    /// 通过路径执行
+    fn prepare_json_by_file_path(file_path: &str, mut response: HttpResponse) -> Result<HttpResponse, String> {
         let suffix = response.file_props.suffix.clone();
         let suffix = &suffix.as_str();
-        let file_path = file_path.unwrap().as_str().unwrap();
         info!("file path: {}, suffix: {}", file_path, suffix);
 
         // 判断文件是否是可执行文件

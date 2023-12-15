@@ -86,7 +86,6 @@ class HomeStore extends BaseStore {
       this.imageProps = {}
       this.loading = true
       let result: { [K: string]: any } = {}
-      this.content = ''
 
       if (file !== null) {
         this.fileName = file.name || ''
@@ -112,32 +111,48 @@ class HomeStore extends BaseStore {
         )
       }
 
-      console.log('result:', result)
       this.loading = false
-
-      this.fileProps = result.fileProps || {}
-      this.suffixProps = result.suffixProps || {}
-      await info(`suffixProps: ${JSON.stringify(this.suffixProps)}`)
-      console.log('suffixProps:', this.suffixProps)
-
-      this.content = this.analysisResult(result, `读取文件 ${this.fileName} 失败!`)
-      if (this.content === undefined || this.content === null) {
-        this.reset()
-        return
-      }
-
-      if (typeof this.content === 'object') {
-        let files = this.content.files || []
-        this.changeFiles(files)
-      }
-
-      // await info(`content: ${JSON.stringify(this.content)}`)
-      // this.getImageProps(file)
+      await this.getResponse(result)
     } catch (err: any) {
       this.reset()
       console.error('read file error !', err)
       TOAST.show({ message: `读取文件 ${this.fileName} 失败!`, type: 4 })
     }
+  }
+
+  /**
+   * 解析结果
+   * @param result
+   */
+  @action
+  async getResponse(result: { [K: string]: any } = {}) {
+    if (Utils.isObjectNull(result)) {
+      console.info('get response, result is null !')
+      await info('get response, result is null !')
+      return
+    }
+    console.log('result:', result)
+    this.content = ''
+
+    this.fileProps = result.fileProps || {}
+    this.suffixProps = result.suffixProps || {}
+    await info(`suffixProps: ${JSON.stringify(this.suffixProps)}`)
+    console.log('suffixProps:', this.suffixProps)
+
+    this.content = this.analysisResult(result, `读取文件 ${this.fileName} 失败!`)
+    if (this.content === undefined || this.content === null) {
+      this.reset()
+      return
+    }
+
+    if (typeof this.content === 'object') {
+      let files = this.content.files || []
+      this.changeFiles(files)
+    }
+
+    // await info(`content: ${JSON.stringify(this.content)}`)
+    // this.getImageProps(file)
+
   }
 
   /**

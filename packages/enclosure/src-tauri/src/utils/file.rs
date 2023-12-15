@@ -9,6 +9,7 @@ use std::fs;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
+use crate::process::HISTORY_FILE;
 
 pub struct FileUtils;
 
@@ -53,6 +54,10 @@ impl FileUtils {
         for entry in entries {
             if let Ok(entry) = entry {
                 let path = entry.path();
+                let path_str = path.as_path().to_string_lossy().to_string();
+                if path_str.ends_with(HISTORY_FILE) {
+                    continue;
+                }
 
                 let metadata = path.metadata().map_err(|err| Error::Error(err.to_string()).to_string())?;
                 let modified_time = metadata.modified().map_err(|err| Error::Error(err.to_string()).to_string())?;

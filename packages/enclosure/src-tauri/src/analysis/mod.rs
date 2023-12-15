@@ -48,6 +48,14 @@ pub struct HttpResponse {
     pub(crate) suffix_props: SuffixProps,
 }
 
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct History {
+    pub id: String,
+    pub name: String,
+    pub path: String,
+    pub update_time: i64
+}
+
 /// 读取关联的文件
 pub fn read_file_association() {
     info!("read file association ...");

@@ -33,12 +33,14 @@ fn main() {
                     }
                 }).build(app);
 
-            app.once_global("application:openURLs:", move |event| {
+            // 此处有问题，需要监听 app delegate 事件
+            app.once_global("application:openURLs", move |event| {
                 println!("application:openURLs : {:#?}", event);
             });
 
+            // 菜单点击事件
             app.on_menu_event(move |app, event| {
-                println!("event id: {:#?}", event.id)
+                system::menu::Menu::on_menu_item_click(app, &event);
             });
 
             Ok(())
