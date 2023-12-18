@@ -17,7 +17,7 @@ use std::time::SystemTime;
 use tauri::http::HeaderMap;
 use tauri::ipc::{InvokeBody, Request};
 use uuid::Uuid;
-use crate::system::menu::{FILE_RECENT_FILES, Menu};
+use crate::system::menu::{FILE_RECENT_FILES};
 
 /// 图片后缀
 pub const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "bmp", "svg"];
@@ -93,13 +93,15 @@ impl Process {
         Ok((file_path, contents))
     }
 
-    fn prepare(app: &tauri::AppHandle, body: &InvokeBody, response: HttpResponse) -> Result<HttpResponse, String> {
+    fn prepare(_: &tauri::AppHandle, body: &InvokeBody, response: HttpResponse) -> Result<HttpResponse, String> {
         let res: HttpResponse;
+        let mut file_type = String::new();
         if let InvokeBody::Raw(data) = body {
             // blob
             res = Self::prepare_blob(data, response.clone())?;
         } else if let InvokeBody::Json(data) = body {
             // json
+            file_type = Self::get_file_type(data);
             res = Self::prepare_json(data, response.clone())?;
         } else {
             res = response.clone();
@@ -147,8 +149,10 @@ impl Process {
         });
 
         // 写入 history
-        let content = serde_json::to_string_pretty(&contents).unwrap();
-        FileUtils::write_to_file_when_clear(&file_path, &content)?;
+        if file_type.is_empty() {
+            let content = serde_json::to_string_pretty(&contents).unwrap();
+            FileUtils::write_to_file_when_clear(&file_path, &content)?;
+        }
 
         // 更新菜单 some errors ?
         // Menu::update_history_submenus(app);
@@ -197,6 +201,17 @@ impl Process {
         };
         info!("get blob data success");
         return Ok(response);
+    }
+
+    fn get_file_type(data: &Value) -> String {
+        let map = Map::new();
+        let obj: &Map<String, Value> = data.as_object().unwrap_or(&map);
+        let file_path = obj.get("fileType");
+        if let Some(file_path) = file_path {
+            return file_path.as_str().unwrap().to_string();
+        }
+
+        String::new()
     }
 
     /// 读取 json 数据

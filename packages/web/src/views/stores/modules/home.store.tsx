@@ -45,7 +45,7 @@ class HomeStore extends BaseStore {
 
       let result: { [K: string]: any } = await invoke(
         'file_handler',
-        { filePath: path },
+        { filePath: path, fileType: 'detail' },
         { headers: { fileName: encodeURIComponent(this.detailContent.fileName) } }
       )
 

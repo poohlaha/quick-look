@@ -10,7 +10,6 @@ use mupdf::{Matrix};
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
-use docx_rs::Paragraph;
 
 pub struct Preview;
 
@@ -107,6 +106,7 @@ impl Preview {
         info!("prepare docx ...");
 
         let res = Self::prepare(file_path, response, |file_path, temp_dir, _| {
+           /*
             let file = FileUtils::read_file(file_path)?;
             let docx = docx_rs::read_docx(&file.to_vec()).map_err(|err| Error::Error(err.to_string()).to_string())?;
             let run = docx_rs::Run::new().add_break(docx_rs::BreakType::Page);
@@ -125,6 +125,8 @@ impl Preview {
                 let output_dir = output_path.as_path().to_string_lossy().to_string();
                 fs::write(&output_dir, bytes).map_err(|err| Error::Error(err.to_string()).to_string())?;
             }
+
+            */
 
             /*
             let docx = docx::DocxFile::from_file(PathBuf::from(file_path)).map_err(|_| Error::Error("parse docx error !".to_string()).to_string())?;

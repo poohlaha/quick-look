@@ -232,6 +232,7 @@ impl Menu {
     }
 
     /// 更新 History submenus
+    #[allow(dead_code)]
     pub fn update_history_submenus(app: &AppHandle) {
         info!("update `File` `Submenus` !");
         let file_menu = Self::get_history_item(app);
