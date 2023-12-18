@@ -131,6 +131,7 @@ class HomeStore extends BaseStore {
       await info('get response, result is null !')
       return
     }
+
     console.log('result:', result)
     this.content = ''
 
@@ -140,12 +141,13 @@ class HomeStore extends BaseStore {
     console.log('suffixProps:', this.suffixProps)
 
     this.content = this.analysisResult(result, `读取文件 ${this.fileName} 失败!`)
+    console.log(this.content)
     if (this.content === undefined || this.content === null) {
       this.reset()
       return
     }
 
-    if (typeof this.content === 'object') {
+    if (this.suffixProps.type === 'archive') {
       let files = this.content.files || []
       this.changeFiles(files)
     }

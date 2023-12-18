@@ -9,10 +9,13 @@ use crate::process::{Process};
 
 pub struct Menu;
 
-const FILE_RECENT_FILES: &str = "__file_recent_files__";
-const MENUS: [&str; 2] = [
-    "File",
-    "Recent Files"
+pub const FILE_RECENT_FILES: &str = "__FILE_HISTORY__";
+const FILE_RECENT_NO_DATA: &str = "__FILE_HISTORY__NO_DATA_";
+
+const NO_DATA: &str = "No Data";
+
+const MENUS: [&str; 1] = [
+    "History"
 ];
 
 impl Menu {
@@ -49,8 +52,8 @@ impl Menu {
             ],
         )?;
 
-        // File
-        let file_menu_items = Self::get_file_menus(app)?;
+        // History
+        let history_menu_items = Self::get_history_menus(app)?;
 
         // Help
         let help_menu_items = Submenu::with_id_and_items(
@@ -77,7 +80,7 @@ impl Menu {
                 target_os = "netbsd",
                 target_os = "openbsd"
                 )))]
-                &file_menu_items,
+                &history_menu_items,
 
                 #[cfg(not(target_os = "macos"))]
                 &help_menu_items,
@@ -88,7 +91,8 @@ impl Menu {
     }
 
 
-    fn get_file_submenus(app: &AppHandle, recent_files_menu: &mut Submenu<Wry>, contents: &Vec<History>) {
+    /// 获取历史记录子菜单
+    fn get_history_submenus(app: &AppHandle, recent_history_menu: &mut Submenu<Wry>, contents: &Vec<History>) {
         // 查找是否有相同的名字，如果是相同名字，则 name 用 path 代替
         let mut submenu_set = HashSet::new();
         let mut submenu_contents: Vec<History> = Vec::new();
@@ -104,57 +108,51 @@ impl Menu {
 
         // 根据历史记录创建菜单
         for content in submenu_contents.iter() {
-            let file_menu = MenuItem::with_id(
+            let menu = MenuItem::with_id(
                 app,
-                format!("{}{}", FILE_RECENT_FILES, content.id),
+                &content.id,
                 &content.name,
                 true,
                 None
             );
 
-            recent_files_menu.append(&file_menu).unwrap();
+            recent_history_menu.append(&menu).unwrap();
         }
     }
 
-    // 获取 File 菜单及其子菜单
-    fn get_file_menus(app: &AppHandle<Wry>) -> tauri::Result<Submenu<Wry>> {
-        // Recent Files
-        let mut recent_files_menu = Submenu::with_id_and_items(
+    // 获取 History 菜单及其子菜单
+    fn get_history_menus(app: &AppHandle<Wry>) -> tauri::Result<Submenu<Wry>> {
+        let mut menu = Submenu::with_id_and_items(
             app,
             FILE_RECENT_FILES,
-            MENUS.get(1).unwrap(),
+            MENUS.get(0).unwrap(),
             true,
             &[]
         )?;
 
         // 读取 HISTORY 文件
         let (_, contents) = Process::read_history().unwrap();
+        if contents.is_empty() {
+            menu.append(&Self::create_history_no_data(app)).unwrap();
+        } else {
+            Self::get_history_submenus(app, &mut menu, &contents);
+        }
 
-        Self::get_file_submenus(app, &mut recent_files_menu, &contents);
-
-        // File
-        Submenu::with_items(
-            app,
-            MENUS.get(0).unwrap(),
-            true,
-            &[
-                &recent_files_menu
-            ],
-        )
+        Ok(menu)
     }
 
-    /// 获取 File Menu
-    fn get_file_item(app: &AppHandle) -> Option<Submenu<Wry>> {
+    /// 获取 History Menu
+    fn get_history_item(app: &AppHandle) -> Option<Submenu<Wry>> {
         let menus = app.menu();
         if menus.is_none() {
-            error!("get menus error !");
+            error!("get application menus error !");
             return None;
         }
 
         let menus = menus.unwrap();
         let items = menus.items();
         if items.is_err() {
-            error!("get menu items error: {}", items.err().unwrap().to_string());
+            error!("get application menu items error: {}", items.err().unwrap().to_string());
             return None;
         }
 
@@ -168,33 +166,33 @@ impl Menu {
                     continue
                 }
 
-                // File Menu
-                let file_items = menu_item.items();
-                if file_items.is_err() {
-                    error!("get `{}` sub menus error: {} !", text, file_items.err().unwrap().to_string());
-                    continue
-                }
-
-                let file_items = file_items.unwrap();
-                for file_item in file_items {
-                    if let MenuItemKind::Submenu(sub_menu) = file_item {
-                        return Some(sub_menu)
-                    }
-                }
+                // History Menu
+                return Some(menu_item)
             }
         }
 
         None
     }
 
-    /// 清空子菜单
-    fn clear_submenus(app: &AppHandle, ids: &Vec<String>) {
+    // History no data
+    fn create_history_no_data (app: &AppHandle) -> MenuItem<Wry> {
+        MenuItem::with_id(
+            app,
+            format!("{}{}", FILE_RECENT_FILES, FILE_RECENT_NO_DATA),
+            NO_DATA,
+            true,
+            None
+        )
+    }
+
+    /// 清空历史记录子菜单
+    fn clear_history_submenus(app: &AppHandle, ids: &Vec<String>) {
         if ids.is_empty() {
             info!("clear submenus ids is empty !");
             return
         }
 
-        let file_menu = Self::get_file_item(app);
+        let file_menu = Self::get_history_item(app);
         if let Some(file_menu) = file_menu {
             let file_items = file_menu.items();
             if let Ok(file_items) = file_items {
@@ -202,7 +200,7 @@ impl Menu {
                 for id in ids.iter() {
                     let remove_item = file_items.iter().find(|item| {
                         if let MenuItemKind::MenuItem(item) = item {
-                            println!("sub menu item id1: {:#?}", item.id())
+                            info!("sub menu item id: {:#?}", item.id())
                         }
 
                         return item.id() == id;
@@ -222,14 +220,21 @@ impl Menu {
                         }
                     }
                 }
+
+                // 判断是否有子菜单
+                if let Ok(item) = file_menu.items() {
+                    if item.is_empty() {
+                        file_menu.append(&Self::create_history_no_data(app)).unwrap();
+                    }
+                }
             }
         }
     }
 
-    /// 更新 File submenus
-    pub fn update_file_submenus(app: &AppHandle) {
+    /// 更新 History submenus
+    pub fn update_history_submenus(app: &AppHandle) {
         info!("update `File` `Submenus` !");
-        let file_menu = Self::get_file_item(app);
+        let file_menu = Self::get_history_item(app);
         if file_menu.is_none() {
             return
         }
@@ -238,9 +243,46 @@ impl Menu {
         let file_items = file_menu.items();
         if let Ok(file_items) = file_items {
             let (_, contents) = Process::read_history().unwrap();
-            // 删除全部菜单再更新
-            info!("remove all `File` `Submenus` ...");
+            if contents.is_empty() {
+                info!("read history, content is empty, remove all `File` `Submenus` !");
+                // 移除不存在的菜单
+                info!("remove all `File` `Submenus` ...");
+                for file_item in file_items.iter() {
+                    match file_menu.remove(file_item) {
+                        Ok(_) => {
+                            error!("remove menu `{}` success !", file_item.id().0)
+                        }
+                        Err(err) => {
+                            error!("remove menu `{}` error: {}", file_item.id().0, err.to_string())
+                        }
+                    }
+                }
+                return
+            }
+
+            // 移除不存在的菜单和 No Data
+            info!("remove no data and not exists menus ...");
+            let mut id_contents: Vec<String> = Vec::new();
             for file_item in file_items.iter() {
+                let mut has_found = false;
+                if let MenuItemKind::Submenu(menu_item) = file_item {
+                    let menu_text = menu_item.text().unwrap();
+                    if &menu_text == NO_DATA {
+                        has_found = true
+                    }
+                } else {
+                    let found = contents.iter().find(|c| &c.id == &file_item.id().0);
+                    if found.is_some() {
+                        has_found = true
+                    } else {
+                        id_contents.push(file_item.id().0.clone());
+                    }
+                }
+
+                if !has_found {
+                    continue
+                }
+
                 match file_menu.remove(file_item) {
                     Ok(_) => {
                         error!("remove menu `{}` success !", file_item.id().0)
@@ -251,44 +293,44 @@ impl Menu {
                 }
             }
 
-            if contents.is_empty() {
-                info!("read history, content is empty, remove all `File` `Submenus` !");
-                return
-            }
+            info!("add new menus ...");
+            let add_contents = contents.iter().filter_map(|c| {
+                if id_contents.contains(&c.id) {
+                    None
+                } else {
+                    Some(c.clone())
+                }
+            }).collect();
 
             // 重新设置菜单
-            Self::get_file_submenus(app, &mut file_menu, &contents);
+            Self::get_history_submenus(app, &mut file_menu, &add_contents);
         }
-
-
     }
 
     /// 菜单点击事件
     pub fn on_menu_item_click(app: &AppHandle, event: &MenuEvent) {
         let event_id = &event.id.0;
-        println!("event_id: {}", event_id);
+        info!("event_id: {}", event_id);
 
         // Recent Files Sub Menus
         if event_id.starts_with(FILE_RECENT_FILES) {
-            let id = event_id.replace(FILE_RECENT_FILES, "");
-            println!("id: {}", id);
             // 读取历史记录, 获取 path
             let (_, contents) = Process::read_history().unwrap();
             if contents.is_empty() {
                 info!("can not found history !");
                 // 清空菜单
-                Self::clear_submenus(app, &vec![event_id.to_string()]);
+                Self::clear_history_submenus(app, &vec![event_id.to_string()]);
                 return
             }
 
             // 根据id 查找路径
-            let content = contents.iter().find(|c| &c.id == &id);
+            let content = contents.iter().find(|c| c.id.as_str() == event_id.as_str());
             if let Some(content) = content {
                 let path = &content.path;
                 let name = &content.name;
                 if path.is_empty() || name.is_empty() {
                     info!("found history, path or name is empty !");
-                    Self::clear_submenus(app, &vec![event_id.to_string()]);
+                    Self::clear_history_submenus(app, &vec![event_id.to_string()]);
                     return
                 }
 
@@ -309,8 +351,8 @@ impl Menu {
                     Err(_) => {}
                 }
             } else {
-                info!("can not found history by `{}` !", &id);
-                Self::clear_submenus(app, &vec![event_id.to_string()]);
+                info!("can not found history by `{}` !", &event_id);
+                Self::clear_history_submenus(app, &vec![event_id.to_string()]);
             }
         }
     }

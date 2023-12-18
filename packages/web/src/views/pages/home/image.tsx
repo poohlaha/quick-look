@@ -9,7 +9,7 @@ import { observer } from 'mobx-react-lite'
 interface IImageProps {
   needActions?: boolean
   content: string
-   type: string
+  type: string
 }
 
 const Image: React.FC<IImageProps> = (props: IImageProps): ReactElement => {

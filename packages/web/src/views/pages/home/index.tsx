@@ -14,7 +14,7 @@ import Archive from '@pages/home/archive'
 import Preview from '@pages/home/preview'
 import Look from '@pages/home/look'
 import { listen } from '@tauri-apps/api/event'
-import useMount from "@hooks/useMount";
+import useMount from '@hooks/useMount'
 
 const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
   const uploadRef = useRef(null)
@@ -32,6 +32,7 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
     await listen('send_res_to_window', async (event: any = {}) => {
       let data = event.payload || {}
       console.log('receive response', data)
+      homeStore.fileName = data.fileProps?.name || ''
       await homeStore.getResponse(data)
     })
   })

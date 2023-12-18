@@ -17,6 +17,7 @@ use std::time::SystemTime;
 use tauri::http::HeaderMap;
 use tauri::ipc::{InvokeBody, Request};
 use uuid::Uuid;
+use crate::system::menu::{FILE_RECENT_FILES, Menu};
 
 /// 图片后缀
 pub const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "bmp", "svg"];
@@ -75,7 +76,7 @@ impl Process {
         let path = FileUtils::create_temp_dir("", false)?;
         let path = path.join(HISTORY_FILE);
         let file_path = path.as_path().to_string_lossy().to_string();
-        println!("history file path: {}", &file_path);
+        info!("history file path: {}", &file_path);
 
         let mut contents: Vec<History> = Vec::new();
 
@@ -85,6 +86,8 @@ impl Process {
             if !content.is_empty() {
                 contents = serde_json::from_str(&content).map_err(|err| Error::Error(err.to_string()).to_string())?;
             }
+        } else {
+            info!("no history found ...");
         }
 
         Ok((file_path, contents))
@@ -137,7 +140,7 @@ impl Process {
         }
 
         contents.push(History {
-            id: uuid,
+            id: format!("{}{}", FILE_RECENT_FILES, uuid),
             name: name.to_string(),
             path: path.to_string(),
             update_time: chrono::Local::now().timestamp()
@@ -146,6 +149,9 @@ impl Process {
         // 写入 history
         let content = serde_json::to_string_pretty(&contents).unwrap();
         FileUtils::write_to_file_when_clear(&file_path, &content)?;
+
+        // 更新菜单 some errors ?
+        // Menu::update_history_submenus(app);
         return Ok(res);
     }
 

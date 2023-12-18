@@ -10,7 +10,7 @@ import Image from './image'
 
 interface ILookProps {
   fileName: string
-  content: string | { [K: string]: any }
+  content: string | { [K: string]: any } | Array<any>
   loading: boolean
   suffixProps: { [K: string]: any }
 }
@@ -35,8 +35,16 @@ const Look: React.FC<ILookProps> = (props: ILookProps): ReactElement => {
   }
 
   const render = () => {
-    if (typeof props.content !== 'string') return <div></div>
-    if (props.loading || Utils.isBlank(props.content) || Utils.isBlank(props.fileName)) return <div></div>
+    let content = ''
+    if (Array.isArray(props.content)) {
+      content = props.content.join('\n')
+    } else if (typeof props.content !== 'string') {
+      content = JSON.stringify(props.content)
+    } else {
+      content = props.content
+    }
+
+    if (props.loading || Utils.isBlank(content) || Utils.isBlank(props.fileName)) return <div></div>
 
     // @ts-ignore
     let prism = window['Prism']
@@ -45,7 +53,7 @@ const Look: React.FC<ILookProps> = (props: ILookProps): ReactElement => {
     // image
     let suffixProps: { [K: string]: any } = props.suffixProps || {}
     if (suffixProps.type === 'image') {
-      return <Image content={props.content || ''} type={suffixProps.name || ''}/>
+      return <Image content={content || ''} type={suffixProps.name || ''}/>
     }
 
     if (suffix === 'plist') {
@@ -62,7 +70,7 @@ const Look: React.FC<ILookProps> = (props: ILookProps): ReactElement => {
       language = prism.languages['txt']
     }
 
-    const html = prism.highlight(props.content, language, suffix)
+    const html = prism.highlight(content, language, suffix)
     return (
       <pre>
         <code className={`file-detail language-${suffix}`} dangerouslySetInnerHTML={{ __html: html || '' }} />
