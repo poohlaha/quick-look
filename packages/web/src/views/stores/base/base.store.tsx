@@ -80,7 +80,7 @@ export default class BaseStore {
     }
 
     // 压缩包
-    if (suffixProps.type === 'archive') {
+    if (suffixProps.type === 'archive' || suffixProps.type === 'dir') {
       return result.fileProps || {}
     }
 

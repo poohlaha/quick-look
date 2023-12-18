@@ -1,6 +1,6 @@
 //! 压缩包处理
 
-use crate::analysis::{FileProps, HttpResponse, SuffixProps};
+use crate::analysis::{HttpResponse, SuffixProps};
 use crate::error::Error;
 use crate::process::{Process, ARCHIVE_SUFFIXES};
 use crate::utils::file::FileUtils;
@@ -87,39 +87,15 @@ impl Archive {
     {
         func(reader, &unzip_path, response.clone())?;
 
-        // 读取目录下的所有文件
-        let mut files: Vec<FileProps> = Vec::new();
-        let mut size: u64 = 0;
-
-        let unzip_dir_str = unzip_path.as_path().to_string_lossy().to_string();
-        Process::read_files(unzip_path.as_path(), &unzip_dir_str, &mut size, &mut files)?;
-
-        // 按目录归纳文件
-        let props = Self::organize_files(files);
-
-        let mut files = props.files.clone();
-        if files.len() > 0 {
-            // 判断第一个名称是不是项目名称, 如果是, 则忽略掉
-            let first_file = files.get(0).unwrap();
-            let prefix = response.file_props.prefix.clone();
-            let spec = String::from("/");
-            let mut before_prefix = spec.clone();
-            before_prefix.push_str(prefix.as_str());
-
-            let mut after_prefix = prefix.clone();
-            after_prefix.push_str(spec.as_str());
-
-            if first_file.name == prefix || first_file.name == before_prefix || first_file.name == after_prefix || first_file.name == spec {
-                files = first_file.files.clone();
-            }
-        }
+        // 读取目录下的所有文件,并归纳目录
+        let (files, size) = Process::read_directory(unzip_path, &response.file_props.prefix)?;
 
         response.code = 200;
         response.file_props.kind = kind;
         response.file_props.packed = response.file_props.size;
         response.file_props.size = FileUtils::convert_size(size);
         response.file_props.files = files;
-        response.file_props.full_path = unzip_dir_str;
+        response.file_props.full_path = unzip_path.as_path().to_string_lossy().to_string();
         response.suffix_props = SuffixProps {
             name: response.file_props.suffix.clone(),
             _type: String::from("archive"),
@@ -247,49 +223,5 @@ impl Archive {
 
         info!("prepare 7z success !");
         Ok(res)
-    }
-
-    /// 按目录归纳文件
-    fn organize_files(files: Vec<FileProps>) -> FileProps {
-        let mut root = FileProps::default();
-
-        for props in files {
-            let file_path = &props.path;
-
-            let path = Path::new(file_path);
-            let mut current_dir = &mut root;
-            let mut full_path = PathBuf::new();
-
-            for component in path.iter() {
-                let name = component.to_string_lossy().to_string();
-                let index = current_dir.files.iter().position(|d| d.name == name);
-                full_path = full_path.join(&name);
-
-                if let Some(index) = index {
-                    // 目录已存在，继续向下
-                    current_dir = &mut current_dir.files[index];
-                } else {
-                    // 目录不存在，添加新目录
-                    let mut new_dir = props.clone();
-                    new_dir.name = name.clone();
-                    new_dir.path = full_path.clone().as_path().to_string_lossy().to_string();
-                    new_dir.files = Vec::new();
-                    new_dir.suffix = if props.is_directory {
-                        String::new()
-                    } else {
-                        FileUtils::get_file_suffix(&name)
-                    };
-                    new_dir.kind = FileUtils::get_file_suffix(&name);
-
-                    current_dir.files.push(new_dir);
-
-                    // 更新 current_dir 的引用
-                    let len = current_dir.files.len();
-                    current_dir = &mut current_dir.files[len - 1];
-                }
-            }
-        }
-
-        root
     }
 }

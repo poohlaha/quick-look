@@ -147,14 +147,13 @@ class HomeStore extends BaseStore {
       return
     }
 
-    if (this.suffixProps.type === 'archive') {
+    if (this.suffixProps.type === 'archive' || this.suffixProps.type === 'dir') {
       let files = this.content.files || []
       this.changeFiles(files)
     }
 
     // await info(`content: ${JSON.stringify(this.content)}`)
     // this.getImageProps(file)
-
   }
 
   /**

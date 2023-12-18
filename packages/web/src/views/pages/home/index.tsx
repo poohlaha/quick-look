@@ -78,8 +78,16 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
               directory: false,
             })
             console.log('select file', file)
-            if (file) {
-              await homeStore.readFile(null, file || {})
+            if (typeof file === 'string') {
+              // dir
+              await homeStore.readFile(null, {
+                name: file,
+                path: file,
+              })
+            } else {
+              if (file) {
+                await homeStore.readFile(null, file || {})
+              }
             }
           }}
         >
@@ -103,13 +111,13 @@ const Home: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
   }
 
   const getLookHtml = () => {
-    if (homeStore.suffixProps.type === 'archive') {
-      return <Archive/>
+    if (homeStore.suffixProps.type === 'archive' || homeStore.suffixProps.type === 'dir') {
+      return <Archive />
     }
 
     if (homeStore.suffixProps.type === 'preview') {
       return (
-          <Preview
+        <Preview
           fileName={homeStore.fileName || ''}
           content={homeStore.content || []}
           loading={homeStore.loading}

@@ -116,36 +116,67 @@ const Archive: React.FC<IRouterProps> = (props: IRouterProps): ReactElement => {
     })
   }
 
+  const getArchiveIcon = () => {
+    return (
+      <div className="svg-box">
+        <svg className="svg-icon wh100" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+          <path d="M0 339.53792h1022.0032v344.92416H0z" fill="#F9605D"></path>
+          <path
+            d="M1016.5248 339.53792V64.73728c0-34.11968-29.19424-64.44032-63.86688-64.44032H63.87712C29.20448 0.29696 0 30.6176 0 64.73728v274.80064h1016.5248z"
+            fill="#53C7F7"
+          ></path>
+          <path
+            d="M0 684.46208v274.80064c0 34.11968 29.20448 64.44032 63.87712 64.44032h896.07168c34.68288 0 63.87712-30.32064 63.87712-64.44032V684.46208H0z"
+            fill="#7DCF3B"
+          ></path>
+          <path d="M399.6672 0.29696H627.8144V1023.6928H399.6672z" fill="#FDB042"></path>
+          <path
+            d="M627.80416 443.77088v144.03584H388.73088V443.77088h239.07328z m38.32832-58.74688H350.40256c-5.4784 0-14.60224 5.6832-14.60224 15.1552v229.3248c0 5.6832 5.4784 15.1552 14.60224 15.1552h315.72992c5.46816 0 14.592-5.6832 14.592-15.1552V400.1792c-3.64544-11.3664-9.1136-15.1552-14.592-15.1552z"
+            fill="#FFFFFF"
+          ></path>
+        </svg>
+      </div>
+    )
+  }
+
+  const getDirIcon = () => {
+    return (
+      <div className="svg-box">
+        <svg className="svg-icon wh100" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M179.2 153.6m89.6 0l588.8 0q89.6 0 89.6 89.6l0 486.4q0 89.6-89.6 89.6l-588.8 0q-89.6 0-89.6-89.6l0-486.4q0-89.6 89.6-89.6Z"
+            fill="#FF9C55"
+          ></path>
+          <path
+            d="M25.6 193.4208A91.0208 91.0208 0 0 1 116.6208 102.4H382.592a91.0208 91.0208 0 0 1 87.5008 65.9712l24.5504 85.7216h412.7488A91.0208 91.0208 0 0 1 998.4 345.1392v485.4528A91.0208 91.0208 0 0 1 907.3792 921.6H116.608A91.0208 91.0208 0 0 1 25.6 830.5792V193.408z"
+            fill="#FFD977"
+          ></path>
+          <path
+            d="M128 665.6m25.6 0l76.8 0q25.6 0 25.6 25.6l0 0q0 25.6-25.6 25.6l-76.8 0q-25.6 0-25.6-25.6l0 0q0-25.6 25.6-25.6Z"
+            fill="#FFF1C9"
+          ></path>
+          <path
+            d="M128 768m25.6 0l179.2 0q25.6 0 25.6 25.6l0 0q0 25.6-25.6 25.6l-179.2 0q-25.6 0-25.6-25.6l0 0q0-25.6 25.6-25.6Z"
+            fill="#FFF1C9"
+          ></path>
+          <path
+            d="M128 486.4m51.2 0l0 0q51.2 0 51.2 51.2l0 0q0 51.2-51.2 51.2l0 0q-51.2 0-51.2-51.2l0 0q0-51.2 51.2-51.2Z"
+            fill="#FFA86A"
+          ></path>
+        </svg>
+      </div>
+    )
+  }
+
   const render = () => {
     if (typeof homeStore.content !== 'object') return <div></div>
     if (homeStore.loading || Utils.isObjectNull(homeStore.content) || Utils.isBlank(homeStore.fileName))
       return <div></div>
 
-    let files = homeStore.content.files || []
-    console.log('files', files)
-
     return (
       <div className="archive-wrapper">
         <div className="info flex">
-          <div className="svg-box">
-            <svg className="svg-icon wh100" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg">
-              <path d="M0 339.53792h1022.0032v344.92416H0z" fill="#F9605D"></path>
-              <path
-                d="M1016.5248 339.53792V64.73728c0-34.11968-29.19424-64.44032-63.86688-64.44032H63.87712C29.20448 0.29696 0 30.6176 0 64.73728v274.80064h1016.5248z"
-                fill="#53C7F7"
-              ></path>
-              <path
-                d="M0 684.46208v274.80064c0 34.11968 29.20448 64.44032 63.87712 64.44032h896.07168c34.68288 0 63.87712-30.32064 63.87712-64.44032V684.46208H0z"
-                fill="#7DCF3B"
-              ></path>
-              <path d="M399.6672 0.29696H627.8144V1023.6928H399.6672z" fill="#FDB042"></path>
-              <path
-                d="M627.80416 443.77088v144.03584H388.73088V443.77088h239.07328z m38.32832-58.74688H350.40256c-5.4784 0-14.60224 5.6832-14.60224 15.1552v229.3248c0 5.6832 5.4784 15.1552 14.60224 15.1552h315.72992c5.46816 0 14.592-5.6832 14.592-15.1552V400.1792c-3.64544-11.3664-9.1136-15.1552-14.592-15.1552z"
-                fill="#FFFFFF"
-              ></path>
-            </svg>
-          </div>
-
+          {homeStore.suffixProps.type === 'dir' ? getDirIcon() : getArchiveIcon()}
           <div className="descriptions">
             <p className="title">{homeStore.fileName || ''}</p>
             <div className="desc">
