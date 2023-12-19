@@ -7,7 +7,7 @@ import { observable, action } from 'mobx'
 import BaseStore from '../base/base.store'
 import { invoke } from '@tauri-apps/api/primitives'
 import { info } from '@tauri-apps/plugin-log'
-import { COMMON, TOAST } from '@utils/base'
+import { TOAST } from '@utils/base'
 import Utils from '@utils/utils'
 
 class HomeStore extends BaseStore {
@@ -44,7 +44,7 @@ class HomeStore extends BaseStore {
       this.detailContent.fileName = name || ''
 
       let result: { [K: string]: any } = await invoke(
-        'file_handler',
+        'process',
         { filePath: path, fileType: 'detail' },
         { headers: { fileName: encodeURIComponent(this.detailContent.fileName) } }
       )
@@ -90,7 +90,7 @@ class HomeStore extends BaseStore {
       if (file !== null) {
         this.fileName = file.name || ''
         let buffer: ArrayBuffer = await file.arrayBuffer()
-        result = await invoke('file_handler', buffer, { headers: { fileName: encodeURIComponent(this.fileName) } })
+        result = await invoke('process', buffer, { headers: { fileName: encodeURIComponent(this.fileName) } })
       } else if (!Utils.isObjectNull(fileProps)) {
         console.log('fileProps:', fileProps)
         await info(`fileProps: ${JSON.stringify(fileProps)}`)
@@ -104,11 +104,7 @@ class HomeStore extends BaseStore {
           return
         }
 
-        result = await invoke(
-          'file_handler',
-          { filePath },
-          { headers: { fileName: encodeURIComponent(this.fileName) } }
-        )
+        result = await invoke('process', { filePath }, { headers: { fileName: encodeURIComponent(this.fileName) } })
       }
 
       this.loading = false

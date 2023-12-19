@@ -7,6 +7,9 @@ import React, { ReactElement } from 'react'
 import { observer } from 'mobx-react-lite'
 import Utils from '@utils/utils'
 import Image from './image'
+import CodeMirror from '@uiw/react-codemirror'
+import { langs, langNames } from '@uiw/codemirror-extensions-langs'
+import { githubLight } from '@uiw/codemirror-theme-github'
 
 interface ILookProps {
   fileName: string
@@ -60,22 +63,37 @@ const Look: React.FC<ILookProps> = (props: ILookProps): ReactElement => {
       suffix = 'xml'
     } else if (suffix === 'rs') {
       suffix = 'rust'
+    } else if (suffix === 'js') {
+      suffix = 'javascript'
     }
 
-    let language
-    try {
-      language = prism.languages[suffix] || prism.languages['txt']
-    } catch (e) {
-      console.warn('no language has found, use default `txt`')
-      language = prism.languages['txt']
+    /*
+   let language
+   try {
+     language = prism.languages[suffix] || prism.languages['txt']
+   } catch (e) {
+     console.warn('no language has found, use default `txt`')
+     language = prism.languages['txt']
+   }
+
+   const html = prism.highlight(content, language, suffix)
+
+   return (
+     <pre>
+       <code className={`file-detail language-${suffix}`} dangerouslySetInnerHTML={{ __html: html || '' }} />
+     </pre>
+   )
+
+    */
+    console.log(langNames)
+    // @ts-ignore
+    let extension = langs[suffix]
+    if (!extension) {
+      // @ts-ignore
+      extension = langs['apl']
     }
 
-    const html = prism.highlight(content, language, suffix)
-    return (
-      <pre>
-        <code className={`file-detail language-${suffix}`} dangerouslySetInnerHTML={{ __html: html || '' }} />
-      </pre>
-    )
+    return <CodeMirror value={content} theme={githubLight} extensions={[extension?.()]} />
   }
 
   return render()

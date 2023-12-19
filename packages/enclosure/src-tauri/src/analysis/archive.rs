@@ -1,8 +1,9 @@
 //! 压缩包处理
 
-use crate::analysis::{HttpResponse, SuffixProps};
+use crate::analysis::process::Process;
+use crate::config::{HttpResponse, SuffixProps, ARCHIVE_SUFFIXES};
 use crate::error::Error;
-use crate::process::{Process, ARCHIVE_SUFFIXES};
+use crate::prepare::Prepare;
 use crate::utils::file::FileUtils;
 use bzip2::read::{BzDecoder, BzEncoder};
 use bzip2::Compression;
@@ -16,8 +17,8 @@ use xz2::read::XzEncoder;
 
 pub struct Archive;
 
-impl Archive {
-    pub fn exec(reader: BufReader<File>, mut response: HttpResponse) -> Result<HttpResponse, String> {
+impl Prepare<HttpResponse> for Archive {
+    fn with_file_reader(reader: BufReader<File>, response: HttpResponse) -> Result<HttpResponse, String> {
         let suffix = response.file_props.suffix.clone();
 
         // zip
@@ -76,10 +77,13 @@ impl Archive {
             return Self::prepare_7z(reader, &temp_path, response);
         }
 
-        response.error = "读取压缩包失败, 不支持的格式".to_string();
-        return Ok(response);
+        let mut res = response.clone();
+        res.error = "读取压缩包失败, 不支持的格式".to_string();
+        return Ok(res);
     }
+}
 
+impl Archive {
     /// 解压
     fn decompress<F>(kind: String, reader: BufReader<File>, unzip_path: &PathBuf, mut response: HttpResponse, func: F) -> Result<HttpResponse, String>
     where
@@ -223,5 +227,45 @@ impl Archive {
 
         info!("prepare 7z success !");
         Ok(res)
+    }
+
+    /// 解压文件夹
+    pub fn unarchive(file_path: &str, full_path: &str) -> Result<HttpResponse, String> {
+        let mut response = HttpResponse::default();
+        let unarchive_path = Path::new(file_path);
+        let archive_path = Path::new(full_path);
+
+        if !unarchive_path.exists() || !archive_path.exists() {
+            response.error = "文件解压失败, 路径不存在!".to_string();
+            return Ok(response);
+        }
+
+        if unarchive_path.is_dir() {
+            response.error = format!("{} is a directory !", file_path);
+            return Ok(response);
+        }
+
+        let download_path = unarchive_path.parent();
+        if download_path.is_none() {
+            response.error = "文件解压失败, 父路径不存在!".to_string();
+            return Ok(response);
+        }
+
+        let download_path = download_path.unwrap();
+        if !download_path.exists() {
+            response.error = "文件解压失败, 父路径不存在!".to_string();
+            return Ok(response);
+        }
+
+        // 拷贝目录
+        info!("unarchive copy files ...");
+        let mut copy_options = fs_extra::dir::CopyOptions::new();
+        copy_options.overwrite = true;
+        let download_path = download_path.to_string_lossy().to_string();
+        fs_extra::copy_items(&[full_path], &download_path, &copy_options).map_err(|err| Error::Error(err.to_string()).to_string())?;
+
+        response.code = 200;
+        info!("unarchive success!");
+        Ok(response)
     }
 }

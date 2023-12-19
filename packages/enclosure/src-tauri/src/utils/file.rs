@@ -1,5 +1,6 @@
 //! 文件助手
 
+use crate::config::HISTORY_FILE;
 use crate::error::Error;
 use crate::utils::Utils;
 use chrono::Duration;
@@ -9,7 +10,6 @@ use std::fs;
 use std::fs::File;
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
-use crate::process::HISTORY_FILE;
 
 pub struct FileUtils;
 

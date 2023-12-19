@@ -1,17 +1,18 @@
 //! pdf、doc、ppt预览
 
-use crate::analysis::{HttpResponse, SuffixProps};
+use crate::analysis::process::Process;
+use crate::config::{HttpResponse, SuffixProps, DOCUMENT_SUFFIX};
 use crate::error::Error;
-use crate::process::{Process, OTHER_SUFFIX};
+use crate::prepare::Prepare;
 use crate::utils::file::FileUtils;
 use crate::utils::Utils;
 use log::info;
-use mupdf::{Matrix};
+use mupdf::Matrix;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-pub struct Preview;
+pub struct Document;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct PreviewProps {
@@ -20,33 +21,36 @@ pub struct PreviewProps {
     pub content: String,
 }
 
-impl Preview {
-    pub fn exec(response: HttpResponse) -> Result<HttpResponse, String> {
+impl Prepare<HttpResponse> for Document {
+    fn with_response(response: HttpResponse) -> Result<HttpResponse, String> {
+        let file_path = &response.file_props.path;
         let suffix = response.file_props.suffix.clone();
 
         // pdf
-        let pdf = OTHER_SUFFIX.get(0).unwrap();
+        let pdf = DOCUMENT_SUFFIX.get(0).unwrap();
 
         // doc
-        let doc = OTHER_SUFFIX.get(1).unwrap();
+        let doc = DOCUMENT_SUFFIX.get(1).unwrap();
 
         // docx
-        let docx = OTHER_SUFFIX.get(2).unwrap();
+        let docx = DOCUMENT_SUFFIX.get(2).unwrap();
 
         if suffix.ends_with(pdf) {
-            return Self::prepare_pdf(&response.file_props.path, response.clone());
+            return Self::prepare_pdf(file_path, response.clone());
         }
 
         if suffix.ends_with(docx) {
-            return Self::prepare_docx(&response.file_props.path, response.clone());
+            return Self::prepare_docx(file_path, response.clone());
         }
 
         Ok(response)
     }
+}
 
+impl Document {
     fn prepare<F>(file_path: &str, mut response: HttpResponse, func: F) -> Result<HttpResponse, String>
-        where
-            F: FnOnce(&str, &PathBuf, HttpResponse) -> Result<(), String>,
+    where
+        F: FnOnce(&str, &PathBuf, HttpResponse) -> Result<(), String>,
     {
         let temp_dir = FileUtils::create_temp_dir(&response.file_props.prefix, true)?;
 
@@ -95,18 +99,16 @@ impl Preview {
             Ok(())
         })?;
 
-
         info!("prepare pdf success !");
         Ok(res)
     }
-
 
     /// doc
     fn prepare_docx(file_path: &str, response: HttpResponse) -> Result<HttpResponse, String> {
         info!("prepare docx ...");
 
         let res = Self::prepare(file_path, response, |file_path, temp_dir, _| {
-           /*
+            /*
             let file = FileUtils::read_file(file_path)?;
             let docx = docx_rs::read_docx(&file.to_vec()).map_err(|err| Error::Error(err.to_string()).to_string())?;
             let run = docx_rs::Run::new().add_break(docx_rs::BreakType::Page);
@@ -138,7 +140,6 @@ impl Preview {
             println!("pages: {:#?}", pages);
              */
 
-
             /*
             let contents = document.body.content;
 
@@ -163,7 +164,6 @@ impl Preview {
              */
             Ok(())
         })?;
-
 
         info!("prepare docx success !");
         Ok(res)

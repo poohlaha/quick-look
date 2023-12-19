@@ -1,52 +1,59 @@
-//! 文件操作
+//! 处理文件
 
-use crate::analysis::{FileProps, History, HttpResponse, SuffixProps};
-use crate::archive::Archive;
+use crate::analysis::archive::Archive;
+use crate::analysis::document::Document;
+use crate::cache::Cache;
+use crate::config::FileProps;
+use crate::config::{HttpResponse, SuffixProps, ARCHIVE_SUFFIXES, DOCUMENT_SUFFIX, IMAGE_SUFFIXES, PREVIEW_FILE};
 use crate::error::Error;
-use crate::preview::Preview;
+use crate::prepare::{Prepare, Treat};
 use crate::utils::file::FileUtils;
 use crate::utils::Utils;
 use chrono::TimeZone;
 use log::{error, info};
-use serde_json::{Map, Value};
+use std::collections::HashMap;
 use std::fs;
 use std::fs::Metadata;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use tauri::http::HeaderMap;
 use tauri::ipc::{InvokeBody, Request};
-use uuid::Uuid;
-use crate::system::menu::{FILE_RECENT_FILES};
-
-/// 图片后缀
-pub const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "bmp", "svg"];
-
-pub const OTHER_SUFFIX: [&str; 7] = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"];
-
-/// 压缩包后缀
-pub const ARCHIVE_SUFFIXES: [&str; 10] = ["zip", "bz2", "gz", "zlib", "tar", "rar", "7z", "tar.xz", "xz", "tgz"];
-
-pub const PREVIEW_FILE: &str = "preview.json";
-
-// history
-pub const HISTORY_FILE: &str = "history";
-
-// history count
-pub const HISTORY_COUNT: usize = 30;
+use tauri::AppHandle;
 
 pub struct Process;
 
-impl Process {
-    /// 通过文件流读取文件
-    pub fn exec(app: &tauri::AppHandle, request: Request) -> Result<HttpResponse, String> {
-        // get filename in headers
-        let file_name = Self::get_filename_from_headers(request.headers())?;
-        let response = Self::get_response_by_filename(&file_name);
-        Self::prepare(app,request.body(), response)
+impl Treat<HttpResponse> for Process {
+    /// 处理
+    fn handle(app: &AppHandle, request: Request) -> Result<HttpResponse, String> {
+        let file_name = Self::get_filename(request.headers())?; // get filename in headers
+        let response = Self::get_response(&file_name);
+        Self::prepare(app, request.body(), response)
     }
 
-    fn get_response_by_filename(filename: &str) -> HttpResponse {
+    /// 从 `headers` 头中获取文件名, 中文名是 encode 的, 需要 decode
+    fn get_filename(headers: &tauri::http::HeaderMap) -> Result<String, String> {
+        info!("request headers: {:#?}", headers);
+        let filename = headers.get("fileName");
+        info!("filename in header: {:#?}", filename);
+        if filename.is_none() {
+            return Err(Error::Error("`fileName` not in headers !".to_string()).to_string());
+        }
+
+        let mut file_name = String::new();
+        if let Some(filename) = filename {
+            let name = filename.to_str().map_err(|err| Error::Error(err.to_string()).to_string())?;
+            file_name = name.to_string();
+        }
+
+        // decode filename
+        let file_name = urlencoding::decode(&file_name).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        let file_name = file_name.to_string();
+        info!("filename: {:#?}", &file_name);
+        return Ok(file_name);
+    }
+
+    /// response
+    fn get_response(filename: &str) -> HttpResponse {
         let mut response = HttpResponse::default();
         response.code = 500;
 
@@ -65,102 +72,44 @@ impl Process {
         response
     }
 
-    /// 根据路径执行
-    pub fn exec_by_file_path(filename: &str, file_path: &str) -> Result<HttpResponse, String> {
-        let response = Self::get_response_by_filename(&filename);
-        Self::prepare_json_by_file_path(file_path, response)
-    }
-
-    /// 读取历史记录
-    pub fn read_history() -> Result<(String, Vec<History>), String> {
-        let path = FileUtils::create_temp_dir("", false)?;
-        let path = path.join(HISTORY_FILE);
-        let file_path = path.as_path().to_string_lossy().to_string();
-        info!("history file path: {}", &file_path);
-
-        let mut contents: Vec<History> = Vec::new();
-
-        if path.exists() {
-            info!("history found ...");
-            let content = FileUtils::read_file_string(&file_path)?;
-            if !content.is_empty() {
-                contents = serde_json::from_str(&content).map_err(|err| Error::Error(err.to_string()).to_string())?;
-            }
-        } else {
-            info!("no history found ...");
-        }
-
-        Ok((file_path, contents))
-    }
-
-    fn prepare(_: &tauri::AppHandle, body: &InvokeBody, response: HttpResponse) -> Result<HttpResponse, String> {
-        let res: HttpResponse;
-        let mut file_type = String::new();
+    fn prepare(_: &AppHandle, body: &InvokeBody, response: HttpResponse) -> Result<HttpResponse, String> {
+        // blob
         if let InvokeBody::Raw(data) = body {
-            // blob
-            res = Self::prepare_blob(data, response.clone())?;
-        } else if let InvokeBody::Json(data) = body {
-            // json
-            file_type = Self::get_file_type(data);
-            res = Self::prepare_json(data, response.clone())?;
-        } else {
-            res = response.clone();
-        }
-
-        // 存储历史记录
-        let (file_path, mut contents) = Self::read_history()?;
-
-        // 判断名字和路径是否已在存，如果不存在则添加
-        let file_props = &res.file_props;
-        let name = &file_props.name;
-        let path = &file_props.path;
-        let uuid = Uuid::new_v4().to_string();
-
-        let mut has_found = false;
-        if !contents.is_empty() {
-            let found = contents.iter().find(|c| &c.name == name && &c.path == path);
-            if found.is_some() {
-                has_found = true
-            }
-        }
-
-        // 已找到
-        if has_found {
-            info!("found history ...");
+            let res = Self::prepare_blob(data, response.clone())?;
             return Ok(res);
         }
 
-        // 未找到
-        info!("not found history ...");
+        // json
+        if let InvokeBody::Json(data) = body {
+            let params = Self::get_params_by_header(data);
+            let mut file_type = String::new();
+            if let Some(param_type) = params.get("fileType") {
+                file_type = param_type.to_string();
+            }
 
-        // 按时间倒序
-        contents.sort_by(|a, b| b.update_time.cmp(&a.update_time));
+            return if let Some(param_path) = params.get("filePath") {
+                if param_path.is_empty() {
+                    return Err(Error::Error("`fileName` not in headers !".to_string()).to_string());
+                }
 
-        // 判断是不是条数大于 HISTORY_COUNT
-        if contents.len() >= HISTORY_COUNT {
-           contents = contents[..HISTORY_COUNT - 1].to_vec(); // 切掉 HISTORY_COUNT - 1 条
+                let res = Self::prepare_json(param_path, response.clone())?;
+                if file_type.is_empty() {
+                    Cache::save_history(&res.file_props)?;
+
+                    // 更新菜单 some errors ?
+                    // Menu::update_history_submenus(app);
+                }
+
+                Ok(res)
+            } else {
+                Err(Error::Error("`fileName` not in headers !".to_string()).to_string())
+            };
         }
 
-        contents.push(History {
-            id: format!("{}{}", FILE_RECENT_FILES, uuid),
-            name: name.to_string(),
-            path: path.to_string(),
-            update_time: chrono::Local::now().timestamp()
-        });
-
-        // 写入 history
-        if file_type.is_empty() {
-            let content = serde_json::to_string_pretty(&contents).unwrap();
-            FileUtils::write_to_file_when_clear(&file_path, &content)?;
-        }
-
-        // 更新菜单 some errors ?
-        // Menu::update_history_submenus(app);
-        return Ok(res);
+        return Ok(response);
     }
 
-    /// 处理二进制数据
-    fn prepare_blob(data: &Vec<u8>, mut response: HttpResponse) -> Result<HttpResponse, String> {
+    fn prepare_blob(data: &Vec<u8>, response: HttpResponse) -> Result<HttpResponse, String> {
         let suffix = response.file_props.suffix.clone();
         let suffix = suffix.as_str();
         // image suffix
@@ -174,62 +123,26 @@ impl Process {
                 content = Utils::generate_image(data.clone());
             }
 
-            response.code = 200;
-            response.body = content;
-            response.suffix_props = SuffixProps {
-                name: suffix.to_string(),
-                _type: String::from("image"),
-                list: IMAGE_SUFFIXES.iter().map(|str| str.to_string()).collect(),
-            };
+            let res = Self::prepare_response(response, Some(content), "image");
             info!("get image data success!");
-            return Ok(response);
+            return Ok(res);
         }
 
         // pdf, doc
-        if OTHER_SUFFIX.contains(&suffix) {
-            return Preview::exec(response.clone());
+        if DOCUMENT_SUFFIX.contains(&suffix) {
+            return Document::with_response(response.clone());
         }
 
         // read content
         let (contents, _, _) = encoding_rs::UTF_8.decode(data);
-        response.code = 200;
-        response.body = contents.to_string();
-        response.suffix_props = SuffixProps {
-            name: suffix.to_string(),
-            _type: String::new(),
-            list: Vec::new(),
-        };
+        let res = Self::prepare_response(response, Some(contents.to_string()), "");
         info!("get blob data success");
-        return Ok(response);
+        return Ok(res);
     }
 
-    fn get_file_type(data: &Value) -> String {
-        let map = Map::new();
-        let obj: &Map<String, Value> = data.as_object().unwrap_or(&map);
-        let file_path = obj.get("fileType");
-        if let Some(file_path) = file_path {
-            return file_path.as_str().unwrap().to_string();
-        }
-
-        String::new()
-    }
-
-    /// 读取 json 数据
-    fn prepare_json(data: &Value, response: HttpResponse) -> Result<HttpResponse, String> {
-        let map = Map::new();
-        let obj: &Map<String, Value> = data.as_object().unwrap_or(&map);
-        let file_path = obj.get("filePath");
-        if file_path.is_none() {
-            return Err(Error::Error("`fileName` not in headers !".to_string()).to_string());
-        }
-
-        let file_path = file_path.unwrap().as_str().unwrap();
-        Self::prepare_json_by_file_path(file_path, response)
-    }
-
-    /// 通过路径执行
-    fn prepare_json_by_file_path(file_path: &str, mut response: HttpResponse) -> Result<HttpResponse, String> {
-        let suffix = response.file_props.suffix.clone();
+    fn prepare_json(file_path: &str, response: HttpResponse) -> Result<HttpResponse, String> {
+        let mut res = response.clone();
+        let suffix = res.file_props.suffix.clone();
         let suffix = &suffix.as_str();
         info!("file path: {}, suffix: {}", file_path, suffix);
 
@@ -237,60 +150,54 @@ impl Process {
         info!("prepare to get file `{}` props", file_path);
         let mut file_props = Self::prepare_file_props(file_path)?;
         if file_props.executable {
-            response.error = format!("the `{}` file is an executable file !", file_path);
-            return Ok(response);
+            res.error = format!("the `{}` file is an executable file !", file_path);
+            return Ok(res);
         }
 
-        file_props.name = response.file_props.name.clone();
-        file_props.suffix = response.file_props.suffix.clone();
-        file_props.prefix = response.file_props.prefix.clone();
-        response.file_props = file_props;
+        file_props.name = res.file_props.name.clone();
+        file_props.suffix = res.file_props.suffix.clone();
+        file_props.prefix = res.file_props.prefix.clone();
+        res.file_props = file_props;
 
         // directory
         let path = PathBuf::from(file_path);
         if path.is_dir() {
-            return Self::prepare_directory(&path, response)
+            return Self::prepare_directory(&path, res);
         }
 
         // cache
-        if OTHER_SUFFIX.contains(suffix) || ARCHIVE_SUFFIXES.contains(suffix) {
-            return Self::compare_file(suffix, file_path, response);
+        if DOCUMENT_SUFFIX.contains(suffix) || ARCHIVE_SUFFIXES.contains(suffix) {
+            return Self::compare_file(file_path, res);
         }
 
-        Self::prepare_file(suffix, file_path, response)
+        Self::prepare_file(file_path, res)
     }
 
-    /// 读取目录
-    fn prepare_directory(path: &PathBuf, mut response: HttpResponse) -> Result<HttpResponse, String> {
+    fn prepare_directory(path: &PathBuf, response: HttpResponse) -> Result<HttpResponse, String> {
         let file_path = path.as_path().to_string_lossy().to_string();
         if !path.exists() {
             error!("file path `{}` not exists, read directory error !", &file_path);
-            return Err(Error::Error(format!("file path `{}` not exists, read directory error !", &file_path)).to_string())
+            return Err(Error::Error(format!("file path `{}` not exists, read directory error !", &file_path)).to_string());
         }
 
         // 按目录归纳文件
         let (files, size) = Self::read_directory(path, &response.file_props.prefix)?;
 
-        response.code = 200;
-        response.file_props.kind = "Directory".to_string();
-        response.file_props.size = FileUtils::convert_size(size);
-        response.file_props.files = files;
-        response.file_props.full_path = path.as_path().to_string_lossy().to_string();
-        response.suffix_props = SuffixProps {
-            name: response.file_props.suffix.clone(),
-            _type: String::from("dir"),
-            list: vec![],
-        };
-
-        Ok(response)
+        let mut res = response.clone();
+        res.file_props.kind = "Directory".to_string();
+        res.file_props.size = FileUtils::convert_size(size);
+        res.file_props.files = files;
+        res.file_props.full_path = path.as_path().to_string_lossy().to_string();
+        let res = Self::prepare_response(response, None, "dir");
+        Ok(res)
     }
 
-    /// 读取文件
-    fn prepare_file(suffix: &&str, file_path: &str, response: HttpResponse) -> Result<HttpResponse, String> {
-        // archive suffix
-        if ARCHIVE_SUFFIXES.contains(suffix) {
+    fn prepare_file(file_path: &str, response: HttpResponse) -> Result<HttpResponse, String> {
+        let suffix = &response.file_props.suffix;
+        // archive
+        if ARCHIVE_SUFFIXES.contains(&suffix.as_str()) {
             let reader = FileUtils::read_file_buffer(file_path)?;
-            return Archive::exec(reader, response);
+            return Archive::with_file_reader(reader, response);
         }
 
         let content = FileUtils::read_file(file_path)?;
@@ -298,7 +205,7 @@ impl Process {
     }
 
     /// 比较临时文件是不是和文件一致
-    fn compare_file(suffix: &&str, file_path: &str, response: HttpResponse) -> Result<HttpResponse, String> {
+    fn compare_file(file_path: &str, response: HttpResponse) -> Result<HttpResponse, String> {
         info!("prepare to get cache ...");
         let name = &response.file_props.name;
         let temp_dir = FileUtils::create_temp_dir(&response.file_props.prefix, false)?;
@@ -307,7 +214,7 @@ impl Process {
         let temp_file_str = temp_file_path.as_path().to_string_lossy().to_string();
         if temp_file_path.is_dir() || !temp_file_path.exists() {
             info!("path not exists, no cache found ...");
-            return Self::prepare_file(&suffix, file_path, response);
+            return Self::prepare_file(file_path, response);
         }
 
         info!("convert `{}` hash ...", &response.file_props.name);
@@ -315,12 +222,12 @@ impl Process {
         let temp_hash = FileUtils::get_file_hash(&temp_file_str)?;
         if hash.is_empty() || temp_hash.is_empty() {
             info!("hash is empty, no cache found ...");
-            return Self::prepare_file(&suffix, file_path, response);
+            return Self::prepare_file(file_path, response);
         }
 
         if hash != temp_hash {
             info!("`{}` hash is different ...", &response.file_props.name);
-            return Self::prepare_file(&suffix, file_path, response);
+            return Self::prepare_file(file_path, response);
         }
 
         info!("`{}` hash is same ...", &response.file_props.name);
@@ -330,14 +237,14 @@ impl Process {
         let json_file_str = json_file_path.as_path().to_string_lossy().to_string();
         if !json_file_path.exists() {
             info!("json path not exists, no cache found ...");
-            return Self::prepare_file(&suffix, file_path, response);
+            return Self::prepare_file(file_path, response);
         }
 
         info!("read `{}` in path `{}`", PREVIEW_FILE, &json_file_str);
         let content = FileUtils::read_file_string(&json_file_str)?;
         if content.is_empty() {
             info!("`{}` content is empty !", PREVIEW_FILE);
-            return Self::prepare_file(&suffix, file_path, response);
+            return Self::prepare_file(file_path, response);
         }
 
         info!("convert `{}` to response !", PREVIEW_FILE);
@@ -346,30 +253,8 @@ impl Process {
         Ok(response)
     }
 
-    /// 从 `headers` 头中获取文件名, 中文名是 encode 的, 需要 decode
-    fn get_filename_from_headers(headers: &HeaderMap) -> Result<String, String> {
-        info!("headers: {:#?}", headers);
-        let filename = headers.get("fileName");
-        info!("filename: {:#?}", filename);
-        if filename.is_none() {
-            return Err(Error::Error("`fileName` not in headers !".to_string()).to_string());
-        }
-
-        let mut file_name = String::new();
-        if let Some(filename) = filename {
-            let name = filename.to_str().map_err(|err| Error::Error(err.to_string()).to_string())?;
-            file_name = name.to_string();
-        }
-
-        // decode filename
-        let file_name = urlencoding::decode(&file_name).map_err(|err| Error::Error(err.to_string()).to_string())?;
-        let file_name = file_name.to_string();
-        info!("filename decode: {:#?}", &file_name);
-        return Ok(file_name);
-    }
-
     /// 获取文件属性
-    pub fn prepare_file_props(file_path: &str) -> Result<FileProps, String> {
+    fn prepare_file_props(file_path: &str) -> Result<FileProps, String> {
         let metadata: Metadata = fs::metadata(file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
         let mut file_props = FileProps::default();
         file_props.path = file_path.to_string();
@@ -406,6 +291,57 @@ impl Process {
         // file_props.executable = mode & 0o111 != 0;
         file_props.executable = false;
         Ok(file_props)
+    }
+
+    /// 获取输出结果
+    fn prepare_response(response: HttpResponse, content: Option<String>, _type: &str) -> HttpResponse {
+        let mut res = response.clone();
+        res.code = 200;
+
+        // content
+        if let Some(content) = content {
+            res.body = content;
+        }
+
+        // get suffix list
+        let mut list: Vec<String> = Vec::new();
+        if _type == "image" {
+            list = IMAGE_SUFFIXES.iter().map(|str| str.to_string()).collect();
+        }
+
+        res.suffix_props = SuffixProps {
+            name: response.file_props.suffix.clone(),
+            _type: String::from(_type),
+            list,
+        };
+
+        res
+    }
+}
+
+impl Process {
+    /// 根据路径执行
+    pub fn exec_by_file_path(filename: &str, file_path: &str) -> Result<HttpResponse, String> {
+        let response = Self::get_response(&filename);
+        Self::prepare_json(file_path, response)
+    }
+
+    fn get_params_by_header(data: &serde_json::Value) -> HashMap<String, String> {
+        let map = serde_json::Map::new();
+        let obj: &serde_json::Map<String, serde_json::Value> = data.as_object().unwrap_or(&map);
+        let file_type = obj.get("fileType");
+        let file_path = obj.get("filePath");
+
+        let mut params: HashMap<String, String> = HashMap::new();
+        if let Some(file_type) = file_type {
+            params.insert(String::from("fileType"), file_type.as_str().unwrap().to_string());
+        }
+
+        if let Some(file_path) = file_path {
+            params.insert(String::from("filePath"), file_path.as_str().unwrap().to_string());
+        }
+
+        params
     }
 
     /// 读取目录
