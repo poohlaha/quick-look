@@ -129,7 +129,7 @@ impl FileUtils {
         let names: Vec<&str> = file_name.split(".").collect();
         let mut file_suffix = String::new();
         if let Some(suffix) = names.last() {
-            file_suffix = suffix.to_string()
+            file_suffix = suffix.to_lowercase().to_string()
         }
 
         return file_suffix;
