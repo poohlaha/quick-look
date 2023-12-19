@@ -49,8 +49,6 @@ const Look: React.FC<ILookProps> = (props: ILookProps): ReactElement => {
 
     if (props.loading || Utils.isBlank(content) || Utils.isBlank(props.fileName)) return <div></div>
 
-    // @ts-ignore
-    let prism = window['Prism']
     let suffix = getFileSuffix()
 
     // image
@@ -65,6 +63,8 @@ const Look: React.FC<ILookProps> = (props: ILookProps): ReactElement => {
       suffix = 'rust'
     } else if (suffix === 'js') {
       suffix = 'javascript'
+    } else if (suffix === 'md') {
+      suffix = 'markdown'
     }
 
     /*
@@ -90,7 +90,7 @@ const Look: React.FC<ILookProps> = (props: ILookProps): ReactElement => {
     let extension = langs[suffix]
     if (!extension) {
       // @ts-ignore
-      extension = langs['apl']
+      extension = langs['markdown']
     }
 
     return <CodeMirror value={content} theme={githubLight} extensions={[extension?.()]} />
