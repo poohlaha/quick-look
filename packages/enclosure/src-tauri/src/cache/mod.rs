@@ -34,6 +34,7 @@ impl Cache {
 
     /// 保存历史记录
     pub fn save_history(file_props: &FileProps) -> Result<(), String> {
+        info!("save history ...");
         // 存储历史记录
         let (file_path, mut contents) = Cache::read_history()?;
 

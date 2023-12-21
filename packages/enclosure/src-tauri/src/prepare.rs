@@ -14,11 +14,6 @@ pub trait Prepare<R>
 where
     R: HttpResponseData,
 {
-    // 通过 file_path 处理
-    fn with_file_path(file_path: &str, response: R) -> Result<R, String> {
-        Ok(response)
-    }
-
     // 通过 file reader 处理
     fn with_file_reader(reader: BufReader<File>, response: R) -> Result<R, String> {
         Ok(response)
@@ -34,13 +29,11 @@ pub trait Treat<R>
 where
     R: HttpResponseData,
 {
-    fn handle(app: &tauri::AppHandle, request: tauri::ipc::Request) -> Result<R, String>;
-
     fn get_filename(headers: &tauri::http::HeaderMap) -> Result<String, String>;
 
     fn get_response(filename: &str) -> R;
 
-    fn prepare(app: &tauri::AppHandle, body: &tauri::ipc::InvokeBody, response: R) -> Result<R, String>;
+    fn prepare(app: &tauri::AppHandle, body: &tauri::ipc::InvokeBody, response: &R) -> Result<R, String>;
 
     fn prepare_blob(data: &Vec<u8>, response: R) -> Result<R, String>;
 

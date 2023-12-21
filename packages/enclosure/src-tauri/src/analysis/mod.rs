@@ -1,5 +1,6 @@
 mod archive;
 mod document;
+mod excel;
 pub mod process;
 
 use crate::analysis::archive::Archive;
@@ -10,8 +11,8 @@ use tauri::ipc::Request;
 
 /// 通过文件流或文件路径读取文件
 #[tauri::command]
-pub fn process(app: tauri::AppHandle, request: Request) -> Result<HttpResponse, String> {
-    Process::handle(&app, request)
+pub async fn process<'a>(app: tauri::AppHandle, request: Request<'a>) -> Result<HttpResponse, String> {
+    Process::handle(&app, request).await
 }
 
 /// 解压压缩包

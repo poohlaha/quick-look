@@ -6,6 +6,7 @@ mod cache;
 mod config;
 mod error;
 mod prepare;
+mod semaphore;
 mod system;
 mod utils;
 

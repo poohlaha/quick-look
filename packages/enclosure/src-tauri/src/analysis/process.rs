@@ -2,9 +2,10 @@
 
 use crate::analysis::archive::Archive;
 use crate::analysis::document::Document;
+use crate::analysis::excel::Excel;
 use crate::cache::Cache;
-use crate::config::FileProps;
-use crate::config::{HttpResponse, SuffixProps, ARCHIVE_SUFFIXES, DOCUMENT_SUFFIX, IMAGE_SUFFIXES, PREVIEW_FILE};
+use crate::config::{FileProps, EXCEL_SUFFIXES};
+use crate::config::{HttpResponse, SuffixProps, ARCHIVE_SUFFIXES, DOCUMENT_SUFFIXES, IMAGE_SUFFIXES, PREVIEW_FILE};
 use crate::error::Error;
 use crate::prepare::{Prepare, Treat};
 use crate::utils::file::FileUtils;
@@ -16,6 +17,7 @@ use std::fs;
 use std::fs::Metadata;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::SystemTime;
 use tauri::ipc::{InvokeBody, Request};
 use tauri::AppHandle;
@@ -23,13 +25,6 @@ use tauri::AppHandle;
 pub struct Process;
 
 impl Treat<HttpResponse> for Process {
-    /// 处理
-    fn handle(app: &AppHandle, request: Request) -> Result<HttpResponse, String> {
-        let file_name = Self::get_filename(request.headers())?; // get filename in headers
-        let response = Self::get_response(&file_name);
-        Self::prepare(app, request.body(), response)
-    }
-
     /// 从 `headers` 头中获取文件名, 中文名是 encode 的, 需要 decode
     fn get_filename(headers: &tauri::http::HeaderMap) -> Result<String, String> {
         info!("request headers: {:#?}", headers);
@@ -72,7 +67,7 @@ impl Treat<HttpResponse> for Process {
         response
     }
 
-    fn prepare(_: &AppHandle, body: &InvokeBody, response: HttpResponse) -> Result<HttpResponse, String> {
+    fn prepare(_: &AppHandle, body: &InvokeBody, response: &HttpResponse) -> Result<HttpResponse, String> {
         // blob
         if let InvokeBody::Raw(data) = body {
             let res = Self::prepare_blob(data, response.clone())?;
@@ -92,10 +87,11 @@ impl Treat<HttpResponse> for Process {
                     return Err(Error::Error("`fileName` not in headers !".to_string()).to_string());
                 }
 
+                let suffix = &response.file_props.suffix;
                 let res = Self::prepare_json(param_path, response.clone())?;
-                if file_type.is_empty() {
+                // excel 采用异步并行任务
+                if file_type.is_empty() && !EXCEL_SUFFIXES.contains(&suffix.as_str()) {
                     Cache::save_history(&res.file_props)?;
-
                     // 更新菜单 some errors ?
                     // Menu::update_history_submenus(app);
                 }
@@ -106,7 +102,7 @@ impl Treat<HttpResponse> for Process {
             };
         }
 
-        return Ok(response);
+        return Ok(response.clone());
     }
 
     fn prepare_blob(data: &Vec<u8>, response: HttpResponse) -> Result<HttpResponse, String> {
@@ -129,7 +125,7 @@ impl Treat<HttpResponse> for Process {
         }
 
         // pdf, doc
-        if DOCUMENT_SUFFIX.contains(&suffix) {
+        if DOCUMENT_SUFFIXES.contains(&suffix) {
             return Document::with_response(response.clone());
         }
 
@@ -166,7 +162,7 @@ impl Treat<HttpResponse> for Process {
         }
 
         // cache
-        if DOCUMENT_SUFFIX.contains(suffix) || ARCHIVE_SUFFIXES.contains(suffix) {
+        if DOCUMENT_SUFFIXES.contains(suffix) || ARCHIVE_SUFFIXES.contains(suffix) {
             return Self::compare_file(file_path, res);
         }
 
@@ -198,6 +194,11 @@ impl Treat<HttpResponse> for Process {
         if ARCHIVE_SUFFIXES.contains(&suffix.as_str()) {
             let reader = FileUtils::read_file_buffer(file_path)?;
             return Archive::with_file_reader(reader, response);
+        }
+
+        // excel
+        if EXCEL_SUFFIXES.contains(&suffix.as_str()) {
+            return Excel::with_response(response);
         }
 
         let content = FileUtils::read_file(file_path)?;
@@ -320,6 +321,28 @@ impl Treat<HttpResponse> for Process {
 }
 
 impl Process {
+    /// 处理
+    pub async fn handle<'a>(app: &AppHandle, request: Request<'a>) -> Result<HttpResponse, String> {
+        let file_name = Self::get_filename(request.headers())?; // get filename in headers
+        let response = Self::get_response(&file_name);
+        // Self::prepare(app, request.body(), response)
+        Self::task(app, request.body(), response).await
+    }
+
+    /// 使用异步任务, 保证不阻塞主线程
+    async fn task(app: &AppHandle, body: &InvokeBody, response: HttpResponse) -> Result<HttpResponse, String> {
+        let app_cloned = Arc::new(app.clone());
+        let body_cloned = Arc::new(body.clone());
+        let response_cloned = Arc::new(response.clone());
+        let result = async_std::task::spawn(async move {
+            info!("async task");
+            Self::prepare(&*app_cloned, &*body_cloned, &*response_cloned)
+        });
+
+        let res = result.await.map_err(|err| Error::Error(err.to_string()).to_string())?;
+        Ok(res)
+    }
+
     /// 根据路径执行
     pub fn exec_by_file_path(filename: &str, file_path: &str) -> Result<HttpResponse, String> {
         let response = Self::get_response(&filename);
@@ -464,20 +487,29 @@ impl Process {
         root
     }
 
-    /// 拷贝文件到临时目录, 并把结果写入到文件
-    pub fn copy_write_to_file(temp_dir: &PathBuf, response: &HttpResponse) -> Result<(), String> {
+    pub fn copy_file(temp_dir: &PathBuf, response: &HttpResponse) -> Result<(), String> {
         info!("copy origin file to temp dir ...");
         let path = &response.file_props.path;
         let temp_dir_str = temp_dir.as_path().to_string_lossy().to_string();
         let mut copy_options = fs_extra::dir::CopyOptions::new();
         copy_options.overwrite = true;
         fs_extra::copy_items(&[path], &temp_dir_str, &copy_options).map_err(|err| Error::Error(err.to_string()).to_string())?;
+        Ok(())
+    }
 
+    pub fn write_to_file(temp_dir: &PathBuf, response: &HttpResponse) -> Result<(), String> {
         info!("write response into json ...");
-        let json_file_path = temp_dir.join(PREVIEW_FILE);
+        let json_file_path = temp_dir.with_extension(PREVIEW_FILE);
         let file_path = json_file_path.as_path().to_string_lossy().to_string();
         let content = serde_json::to_string_pretty(&response).unwrap(); // 序列化为漂亮格式的 JSON 字符串
         FileUtils::write_to_file_when_clear(&file_path, &content)?;
+        Ok(())
+    }
+
+    /// 拷贝文件到临时目录, 并把结果写入到文件
+    pub fn copy_write_to_file(temp_dir: &PathBuf, response: &HttpResponse) -> Result<(), String> {
+        Self::copy_file(temp_dir, response)?;
+        Self::write_to_file(temp_dir, response)?;
         Ok(())
     }
 }

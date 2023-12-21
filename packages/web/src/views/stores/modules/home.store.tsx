@@ -128,7 +128,6 @@ class HomeStore extends BaseStore {
       return
     }
 
-    console.log('result:', result)
     this.content = ''
 
     this.fileProps = result.fileProps || {}

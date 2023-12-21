@@ -8,7 +8,9 @@ use std::collections::HashMap;
 pub const IMAGE_SUFFIXES: [&str; 11] = ["jpeg", "jpg", "png", "gif", "tiff", "tif", "webp", "ico", "heic", "bmp", "svg"];
 
 /// 文档后缀
-pub const DOCUMENT_SUFFIX: [&str; 7] = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx"];
+pub const DOCUMENT_SUFFIXES: [&str; 5] = ["pdf", "doc", "docx", "ppt", "pptx"];
+
+pub const EXCEL_SUFFIXES: [&str; 6] = ["xls", "xlsx", "xlsm", "xlsb", "xla", "xlam"];
 
 /// 压缩包后缀
 pub const ARCHIVE_SUFFIXES: [&str; 10] = ["zip", "bz2", "gz", "zlib", "tar", "rar", "7z", "tar.xz", "xz", "tgz"];
@@ -21,6 +23,9 @@ pub const HISTORY_FILE: &str = "history";
 
 // history count
 pub const HISTORY_COUNT: usize = 30;
+
+// 最大异步线程数
+pub const MAX_ASYNC_TASK_COUNT: usize = 10;
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct History {
@@ -72,3 +77,22 @@ pub struct HttpResponse {
 }
 
 impl HttpResponseData for HttpResponse {}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct ExcelResponse {
+    pub total_rows: usize,
+    pub total_cells: usize,
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct ExcelRow {
+    pub index: usize,
+    pub cells: Vec<ExcelCell>,
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct ExcelCell {
+    pub value: String,
+    pub row_index: usize,
+    pub cell_index: usize,
+}
