@@ -6,7 +6,6 @@ pub mod process;
 use crate::analysis::archive::Archive;
 use crate::analysis::process::Process;
 use crate::config::HttpResponse;
-use crate::prepare::Treat;
 use tauri::ipc::Request;
 
 /// 通过文件流或文件路径读取文件

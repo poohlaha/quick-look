@@ -80,8 +80,24 @@ impl HttpResponseData for HttpResponse {}
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]
 pub struct ExcelResponse {
-    pub total_rows: usize,
-    pub total_cells: usize,
+  pub sheets: Vec<ExcelSheet>
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct ExcelSheet {
+    pub name: String,
+    pub index: u32,
+    pub rows_count: usize,
+    pub cells_count: usize,
+    pub metadata: Vec<ExcelSheetMetadata>
+}
+
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
+pub struct ExcelSheetMetadata {
+    pub name: String,
+    pub row_start: usize,
+    pub row_end: usize,
+    pub task_id: usize
 }
 
 #[derive(Default, Debug, Clone, Serialize, Deserialize)]

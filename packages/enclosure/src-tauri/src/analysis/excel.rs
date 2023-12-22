@@ -1,19 +1,17 @@
 //! 读取 excel
 
-use crate::analysis::process::Process;
-use crate::config::{ExcelCell, ExcelRow, HttpResponse, MAX_ASYNC_TASK_COUNT};
+use std::env::temp_dir;
+use crate::config::{ExcelCell, ExcelRow, ExcelSheet, ExcelSheetMetadata, HttpResponse, MAX_ASYNC_TASK_COUNT, PREVIEW_FILE};
 use crate::error::Error;
 use crate::prepare::Prepare;
 use crate::semaphore::Semaphore;
 use crate::utils::file::FileUtils;
 use async_std::sync::Arc;
-use calamine::{open_workbook, open_workbook_auto, DataType, Range, Reader, Sheets, Xlsx, XlsxError};
+use calamine::{open_workbook_auto, DataType, Range, Reader};
 use log::{error, info};
-use std::fs::File;
-use std::io::BufReader;
-use std::ops::Index;
 use std::path::PathBuf;
 use std::time::Instant;
+
 
 pub struct Excel;
 
@@ -35,6 +33,7 @@ impl Prepare<HttpResponse> for Excel {
             return Ok(res);
         }
 
+        let mut index: u32 = 1;
         for sheet_name in sheets {
             info!("found sheet name `{}`", &sheet_name);
             let start_time = Instant::now();
@@ -43,9 +42,12 @@ impl Prepare<HttpResponse> for Excel {
                 .map_err(|err| Error::Error(err.to_string()).to_string())?;
             let temp_path_cloned = Arc::new(temp_path.clone());
             let res_cloned = Arc::new(res.clone());
+            let index_cloned = Arc::new(index.clone());
             async_std::task::spawn_blocking(move || {
-                Self::handle_sheet(work_range.clone(), &sheet_name, start_time.clone(), &*temp_path_cloned, &*res_cloned).unwrap();
+                let _ = Self::handle_sheet(work_range.clone(), &sheet_name, start_time.clone(), &*temp_path_cloned, &*res_cloned, *index_cloned);
             });
+
+            index += 1;
         }
 
         Ok(res)
@@ -60,56 +62,136 @@ impl Excel {
         start_time: Instant,
         temp_path: &PathBuf,
         response: &HttpResponse,
+        index: u32
     ) -> Result<(), String> {
         info!("handle sheet: {}", sheet_name);
+        let sheet_index = index;
 
         // 计算时间
         let rows = range.rows();
-        let cells = range.cells();
         let (row_size, cell_size) = range.get_size();
-        info!("sheet name: {}, row_size: {}, cell_size: {}", sheet_name, row_size, cell_size);
-        let total_count = rows.len();
 
         let elapsed_time = format!("{:.2?}", start_time.elapsed());
-        info!("handle sheet: {},  count: {}, time: {}", sheet_name, total_count, elapsed_time);
+        info!("handle sheet: {}, row count: {}, cell count: {}, time: {}", sheet_name, row_size, cell_size, elapsed_time);
 
         let mut chunks = Vec::new();
-        if total_count < TAKE_EXCEL_COUNT {
+        if row_size < TAKE_EXCEL_COUNT {
             for row in rows {
                 chunks.push(row.to_owned());
             }
 
             let file_path = temp_path
                 .clone()
-                .join(&response.file_props.prefix)
-                .with_extension(&response.file_props.prefix);
-            Self::get_row(&chunks, 0, file_path)?;
+                .join(&format!("{}-{}-{}", index, sheet_name, &response.file_props.prefix));
+            println!("file_path: {:#?}", &file_path);
+            let _ = Self::get_row(&chunks, 1, file_path)?;
             chunks.clear();
+
+            let mut metadata = ExcelSheetMetadata::default();
+            metadata.name = sheet_name.to_string();
+            metadata.row_start = 1;
+            metadata.row_end = row_size;
+            metadata.task_id = 0;
+            Self::write_result_to_file(temp_path.clone(), sheet_name.to_string(), sheet_index, row_size, cell_size, vec![metadata])?;
         } else {
             let semaphore = Arc::new(Semaphore::new(MAX_ASYNC_TASK_COUNT));
             let mut index = 0;
+            let mut task_index = 0;
+            let mut tasks = Vec::new();
+            let mut metadatas: Vec<ExcelSheetMetadata> = Vec::new();
+            let mut start_index = 1;
 
             // 大于 TAKE_EXCEL_COUNT 时启动异步任务
             for row in rows {
                 index += 1;
                 chunks.push(row.to_owned());
 
-                if (chunks.len() == TAKE_EXCEL_COUNT && index != total_count) || (index == total_count) {
+                if (chunks.len() == TAKE_EXCEL_COUNT && index != row_size) || (index == row_size) {
+                    task_index += 1;
+                    info!("exec task{}", task_index);
+                    let file_path = temp_path.clone().join(&format!("{}-{}-{}-{}-{}", index, task_index, sheet_name, &response.file_props.prefix, task_index));
                     let semaphore_cloned = semaphore.clone();
                     let chunks_clone = Arc::new(chunks.clone());
-                    let index_clone = Arc::new(index.clone());
-                    let temp_path_clone = Arc::new(temp_path.clone());
+                    let index_clone = Arc::new(task_index.clone());
+                    let temp_path_clone = Arc::new(file_path.clone());
                     let res_clone = Arc::new(response.clone());
-                    async_std::task::spawn(async move {
-                        Self::handle_row(semaphore_cloned, chunks_clone, index_clone, temp_path_clone, res_clone).await;
-                    });
+                    let result = async_std::task::spawn(Self::handle_row(semaphore_cloned, chunks_clone, index_clone, temp_path_clone, res_clone));
+                    tasks.push(result);
+
+
+                    let mut metadata = ExcelSheetMetadata::default();
+                    metadata.name = sheet_name.to_string();
+                    metadata.row_start = start_index;
+                    metadata.row_end = index;
+                    metadata.task_id = task_index;
+
+                    if index == row_size {
+                        start_index = 1
+                    } else {
+                        start_index = index + 1;
+                    }
+
+                    metadatas.push(metadata);
                     chunks.clear();
-                    index = 0;
                 }
             }
+
+            let sheet_name = sheet_name.to_string();
+            let temp_path = temp_path.clone();
+           async_std::task::spawn(async move {
+               match futures::future::try_join_all(tasks).await {
+                    Ok(_) => {
+                        info!("execute tasks success !");
+                        // 完成所有任务后写入数据
+                        Self::write_result_to_file(
+                            temp_path,
+                            sheet_name.clone(),
+                            sheet_index,
+                            row_size,
+                            cell_size,
+                            metadatas
+                        ).ok();
+                    }
+                    Err(err) => {
+                        error!("execute tasks error: {}", err);
+                    }
+                }
+            });
         }
 
         // 任务完成后发送消息到前端
+        Ok(())
+    }
+
+    /// 写入结果
+    fn write_result_to_file(temp_dir: PathBuf, sheet_name: String, index: u32, rows_count: usize, cells_count: usize, metadata: Vec<ExcelSheetMetadata>) -> Result<(), String> {
+        let mut sheet = ExcelSheet::default();
+        sheet.name = sheet_name;
+        sheet.rows_count = rows_count;
+        sheet.cells_count = cells_count;
+        sheet.metadata = metadata;
+        sheet.index = index;
+
+        // 写入到文件
+        info!("write sheet info into json ...");
+
+        // read file content
+        let json_file_path = temp_dir.join(PREVIEW_FILE);
+        let json_file_str = json_file_path.to_string_lossy().to_string();
+
+        let mut sheets: Vec<ExcelSheet> = Vec::new();
+        if json_file_path.exists() {
+            let content = FileUtils::read_file_string(&json_file_str)?;
+
+            if !content.is_empty() {
+                sheets = serde_json::from_str(&content).map_err(|err| Error::Error(err.to_string()).to_string())?;
+            }
+        }
+
+        sheets.push(sheet);
+        let content = serde_json::to_string_pretty(&sheets).unwrap(); // 序列化为漂亮格式的 JSON 字符串
+        FileUtils::write_to_file_when_clear(&json_file_str, &content)?;
+        info!("write info json file success !");
         Ok(())
     }
 
@@ -120,20 +202,21 @@ impl Excel {
         index: Arc<usize>,
         temp_path: Arc<PathBuf>,
         response: Arc<HttpResponse>,
-    ) {
+    ) -> Result<(), String> {
         let index = *index;
-        info!("handle row, thread {} ...", index);
+        info!("handle row, task {} ...", index);
         semaphore.acquire().await;
 
         let chunks: &Vec<Vec<DataType>> = &*chunks;
 
         // file_path
-        let file_path = temp_path.join(&response.file_props.prefix).with_extension(&format!("data-{index}"));
-        Self::get_row(chunks, index, file_path);
+        let file_path = &*temp_path;
+        Self::get_row(chunks, index, file_path.clone())?;
         semaphore.release().await;
+        Ok(())
     }
 
-    fn get_row(chunks: &Vec<Vec<DataType>>, index: usize, file_path: PathBuf) -> Result<bool, String> {
+    fn get_row(chunks: &Vec<Vec<DataType>>, index: usize, file_path: PathBuf) -> Result<(), String> {
         let mut rows: Vec<ExcelRow> = Vec::new();
 
         for (x, chunk) in chunks.iter().enumerate() {
@@ -146,7 +229,7 @@ impl Excel {
                     DataType::Int(ref i) => i.to_string(),
                     DataType::Bool(ref b) => b.to_string(),
                     DataType::Error(err) => {
-                        error!("read row error: {:#?}", err);
+                        error!("read row: {} cell: {}, error: {:#?}", x, y, err);
                         String::new()
                     }
                 };
@@ -163,9 +246,10 @@ impl Excel {
 
         // 数据处理完成后写入到文件
         let file_path = file_path.as_path().to_string_lossy().to_string();
-        let content = serde_json::to_string_pretty(&rows).unwrap(); // 序列化为漂亮格式的 JSON 字符串
+        let content = serde_json::to_string(&rows).unwrap(); // 序列化为漂亮格式的 JSON 字符串
         FileUtils::write_to_file_when_clear(&file_path, &content)?;
+        info!("generate file: {}", &file_path);
 
-        Ok(true)
+        Ok(())
     }
 }

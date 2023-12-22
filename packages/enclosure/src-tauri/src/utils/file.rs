@@ -48,7 +48,7 @@ impl FileUtils {
         info!("clear yesterdays dirs ...");
         let now = chrono::Local::now();
         let yesterday = now - Duration::days(1);
-        let yesterday_start = yesterday.date_naive().and_hms_opt(0, 0, 0).unwrap().timestamp();
+        // let yesterday_start = yesterday.date_naive().and_hms_opt(0, 0, 0).unwrap().timestamp();
         let yesterday_end = yesterday.date_naive().and_hms_opt(23, 59, 59).unwrap().timestamp();
 
         let entries = fs::read_dir(file_path).map_err(|err| Error::Error(err.to_string()).to_string())?;
@@ -64,7 +64,7 @@ impl FileUtils {
                 let modified_time = metadata.modified().map_err(|err| Error::Error(err.to_string()).to_string())?;
 
                 let modified_time = chrono::DateTime::<chrono::Local>::from(modified_time).timestamp();
-                if modified_time >= yesterday_start && modified_time <= yesterday_end {
+                if modified_time <= yesterday_end {
                     if path.is_dir() {
                         fs::remove_dir_all(path).map_err(|err| Error::Error(err.to_string()).to_string())?;
                     } else {
